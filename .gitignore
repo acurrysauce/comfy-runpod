@@ -1,0 +1,76 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# uv
+.uv/
+uv.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ComfyUI
+docker/ComfyUI/
+local-comfy/
+*.ckpt
+*.safetensors
+*.pt
+*.pth
+*.bin
+
+# Outputs and temporary files
+output/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+!input/.gitkeep
+!output/.gitkeep
+
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Docker
+*.tar
+*.zip
+
+# RunPod
+.runpod/
+
+# Test files
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
