@@ -1,0 +1,23 @@
+# ComfyUI Model Paths Configuration
+#
+# This file tells ComfyUI where to find models on the network volume.
+# For serverless endpoints: /runpod-volume/comfyui/models/
+# For pods (testing): /workspace/comfyui/models/
+
+comfyui:
+  base_path: /runpod-volume/comfyui/models/
+
+  # Model type directories
+  checkpoints: checkpoints
+  vae: vae
+  loras: loras
+  upscale_models: upscale_models
+  embeddings: embeddings
+  controlnet: controlnet
+  clip_vision: clip_vision
+  clip: clip
+  unet: unet
+  gligen: gligen
+  hypernetworks: hypernetworks
+  photomaker: photomaker
+  style_models: style_models
