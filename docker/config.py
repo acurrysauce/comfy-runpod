@@ -47,11 +47,19 @@ class PathConfig:
     # Pod paths (testing/development)
     models_path_pod: str = "/workspace/comfyui/models"
 
-    # ComfyUI paths (both local and remote)
+    # ComfyUI installation paths
     comfyui_path: str = "/comfyui"
+    comfyui_python: str = "/comfyui/.venv/bin/python"
+
+    # ComfyUI input/output directories (external to installation)
+    # Docker: These are separate directories mounted in container
+    # Local: Point to project root input/output via --input-directory flag
     comfyui_input: str = "/comfyui/input"
     comfyui_output: str = "/comfyui/output"
-    comfyui_python: str = "/comfyui/.venv/bin/python"
+
+    # Local development paths (for launching ComfyUI with external dirs)
+    local_input: str = "./input"
+    local_output: str = "./output"
 
     # Model paths YAML config
     model_paths_config: str = "/model_paths.yaml"

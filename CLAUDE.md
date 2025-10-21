@@ -270,7 +270,12 @@ for filename, base64_data in reference_images.items():
 ```
 
 **Local Environment:**
-Local ComfyUI should mirror this structure - all inputs in `input/` directory with same subdirectory organization.
+Local ComfyUI should mirror this structure - all inputs in project's `input/` directory with same subdirectory organization.
+
+**Important:** The `input/` and `output/` directories are **external to the ComfyUI installation**:
+- **Local development**: Use `--input-directory` and `--output-directory` flags to point ComfyUI to project's `input/` and `output/` directories. This keeps the ComfyUI installation clean and prevents littering it with workflow-specific files.
+- **Docker/RunPod**: Directories are created at `/comfyui/input/` and `/comfyui/output/` (outside the ComfyUI installation directory) and passed to ComfyUI via command-line flags.
+- **Benefit**: ComfyUI installation stays pristine and can be upgraded without losing or mixing workflow data.
 
 #### 7. Virtual Environment Strategy: Single Shared venv
 
@@ -474,10 +479,19 @@ runpodctl config
 ```bash
 cd local-comfy
 source .venv/bin/activate
-python main.py --listen 127.0.0.1 --port 8188 --extra-model-paths-config extra_model_paths.yaml
+
+# Launch with external input/output directories (keeps ComfyUI installation clean)
+python main.py \
+  --listen 127.0.0.1 \
+  --port 8188 \
+  --input-directory /absolute/path/to/comfy-runpod/input \
+  --output-directory /absolute/path/to/comfy-runpod/output \
+  --extra-model-paths-config extra_model_paths.yaml
 
 # Access UI at http://localhost:8188
 ```
+
+**Note:** Using `--input-directory` and `--output-directory` keeps your ComfyUI installation clean by storing all inputs/outputs in the project directory, not inside the ComfyUI installation.
 
 #### Run ComfyUI Locally (with RunPod API Routing)
 ```bash
