@@ -1,0 +1,22 @@
+# Exclude venv from Docker build context
+# The Dockerfile will create its own venv during build
+ComfyUI/.venv/
+ComfyUI/venv/
+ComfyUI/.git/
+
+# Exclude ComfyUI runtime directories (created during execution)
+ComfyUI/input/
+ComfyUI/output/
+ComfyUI/temp/
+ComfyUI/models/
+
+# Exclude Python cache
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+
+# Exclude OS files
+**/.DS_Store
+**/Thumbs.db
