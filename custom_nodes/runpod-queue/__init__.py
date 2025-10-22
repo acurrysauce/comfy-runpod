@@ -187,6 +187,111 @@ async def get_latest_images(request):
         }, status=500)
 
 
+@server.PromptServer.instance.routes.get('/runpod/worker_status')
+async def get_worker_status(request):
+    """Get the current worker status for the RunPod endpoint.
+
+    Returns the current min_workers, max_workers, and endpoint configuration.
+    """
+    try:
+        # Get credentials from environment
+        api_key = os.getenv('RUNPOD_API_KEY')
+        endpoint_id = os.getenv('RUNPOD_ENDPOINT_ID')
+
+        if not api_key:
+            return web.json_response({
+                "status": "error",
+                "message": "RUNPOD_API_KEY environment variable not set"
+            }, status=500)
+
+        if not endpoint_id:
+            return web.json_response({
+                "status": "error",
+                "message": "RUNPOD_ENDPOINT_ID environment variable not set"
+            }, status=500)
+
+        # GraphQL endpoint
+        url = "https://api.runpod.io/graphql"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        # Query current state
+        query = """
+        query {
+            myself {
+                endpoints {
+                    id
+                    name
+                    workersMin
+                    workersMax
+                    idleTimeout
+                }
+            }
+        }
+        """
+
+        response = requests.post(url, json={"query": query}, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Check for GraphQL errors
+        if "errors" in data:
+            error_msg = data["errors"][0].get("message", "Unknown GraphQL error")
+            return web.json_response({
+                "status": "error",
+                "message": f"GraphQL error: {error_msg}"
+            }, status=500)
+
+        # Find our specific endpoint
+        endpoints = data.get("data", {}).get("myself", {}).get("endpoints", [])
+        if not endpoints:
+            return web.json_response({
+                "status": "error",
+                "message": "No endpoints found"
+            }, status=404)
+
+        endpoint_data = None
+        for ep in endpoints:
+            if ep.get("id") == endpoint_id:
+                endpoint_data = ep
+                break
+
+        if not endpoint_data:
+            return web.json_response({
+                "status": "error",
+                "message": f"Endpoint {endpoint_id} not found"
+            }, status=404)
+
+        # Return endpoint status
+        return web.json_response({
+            "status": "success",
+            "endpoint_id": endpoint_data.get("id"),
+            "endpoint_name": endpoint_data.get("name"),
+            "workers_min": endpoint_data.get("workersMin", 0),
+            "workers_max": endpoint_data.get("workersMax", 3),
+            "idle_timeout": endpoint_data.get("idleTimeout", 5)
+        })
+
+    except requests.exceptions.Timeout:
+        return web.json_response({
+            "status": "error",
+            "message": "Request to RunPod API timed out"
+        }, status=504)
+    except requests.exceptions.RequestException as e:
+        return web.json_response({
+            "status": "error",
+            "message": f"Failed to communicate with RunPod API: {str(e)}"
+        }, status=500)
+    except Exception as e:
+        return web.json_response({
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}"
+        }, status=500)
+
+
 @server.PromptServer.instance.routes.post('/runpod/toggle_workers')
 async def toggle_workers(request):
     """Toggle the RunPod endpoint's min_workers between 0 and 1.

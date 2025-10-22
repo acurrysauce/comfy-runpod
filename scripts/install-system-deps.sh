@@ -15,9 +15,9 @@ echo "==========================================="
 echo "This requires sudo access."
 echo ""
 
-# Read packages from file and install
+# Read packages from file (skip comments and empty lines) and install
 sudo apt-get update
-sudo apt-get install -y $(cat "$REQUIREMENTS_FILE")
+sudo apt-get install -y $(grep -v '^#' "$REQUIREMENTS_FILE" | grep -v '^$' | tr '\n' ' ')
 
 echo ""
 echo "==========================================="

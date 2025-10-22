@@ -202,8 +202,8 @@ These are already used by `scripts/send-to-runpod.py`, so they should exist.
 - [x] Testing Complete
 
 ### Phase 2: Backend API Route for Worker Status
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
 
 ### Phase 3: Frontend UI - Status Display and Toggle Button
 - [ ] Implementation Complete

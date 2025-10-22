@@ -1,8 +1,9 @@
-# Exclude venv from Docker build context
-# The Dockerfile will create its own venv during build
-ComfyUI/.venv/
-ComfyUI/venv/
+# Exclude git directories (not needed in container)
 ComfyUI/.git/
+ComfyUI/custom_nodes/*/.git/
+
+# NOTE: We DO include .venv for "fat image" strategy
+# The local venv is copied to avoid reinstalling during build
 
 # Exclude ComfyUI runtime directories (created during execution)
 ComfyUI/input/
