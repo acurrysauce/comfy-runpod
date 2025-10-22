@@ -14,6 +14,10 @@ RUN apt-get update && apt-get install -y \
     wget \
     libgl1-mesa-glx \
     libglib2.0-0 \
+    pkg-config \
+    libcairo2-dev \
+    python3-cairo \
+    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast package management
@@ -22,6 +26,24 @@ ENV PATH="/root/.local/bin:$PATH"
 
 # Copy ComfyUI source code (excluding .venv per .dockerignore)
 COPY ComfyUI /comfyui
+
+# Clone essential custom nodes (if they don't already exist)
+# These are the most popular nodes for masking, inpainting, upscaling, ControlNet, etc.
+RUN cd /comfyui/custom_nodes && \
+    # Masking & Inpainting
+    test -d comfyui-inpaint-nodes || git clone https://github.com/Acly/comfyui-inpaint-nodes.git && \
+    test -d ComfyUI-Impact-Pack || git clone https://github.com/ltdrdata/ComfyUI-Impact-Pack.git && \
+    test -d masquerade-nodes-comfyui || git clone https://github.com/BadCafeCode/masquerade-nodes-comfyui.git && \
+    # Essential utilities
+    test -d ComfyUI_essentials || git clone https://github.com/cubiq/ComfyUI_essentials.git && \
+    test -d was-node-suite-comfyui || git clone https://github.com/WASasquatch/was-node-suite-comfyui.git && \
+    test -d ComfyUI-KJNodes || git clone https://github.com/kijai/ComfyUI-KJNodes.git && \
+    # ControlNet
+    test -d comfyui_controlnet_aux || git clone https://github.com/Fannovel16/comfyui_controlnet_aux.git && \
+    # IPAdapter
+    test -d ComfyUI_IPAdapter_plus || git clone https://github.com/cubiq/ComfyUI_IPAdapter_plus.git && \
+    # Layer manipulation
+    test -d ComfyUI_LayerStyle || git clone https://github.com/chflame163/ComfyUI_LayerStyle.git
 
 # Create virtual environment using uv
 RUN uv venv /comfyui/.venv

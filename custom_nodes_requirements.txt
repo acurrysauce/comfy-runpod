@@ -1,0 +1,22 @@
+# ComfyUI Custom Node Dependencies
+# Format: git_url [branch/tag/commit]
+# These are external custom nodes that need to be installed in ComfyUI
+
+# Masking & Inpainting
+https://github.com/Acly/comfyui-inpaint-nodes.git
+https://github.com/ltdrdata/ComfyUI-Impact-Pack.git
+https://github.com/BadCafeCode/masquerade-nodes-comfyui.git
+
+# Essential utilities
+https://github.com/cubiq/ComfyUI_essentials.git
+https://github.com/WASasquatch/was-node-suite-comfyui.git
+https://github.com/kijai/ComfyUI-KJNodes.git
+
+# ControlNet
+https://github.com/Fannovel16/comfyui_controlnet_aux.git
+
+# IPAdapter
+https://github.com/cubiq/ComfyUI_IPAdapter_plus.git
+
+# Layer manipulation
+https://github.com/chflame163/ComfyUI_LayerStyle.git

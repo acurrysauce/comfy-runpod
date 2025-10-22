@@ -12,6 +12,7 @@ import asyncio
 from pathlib import Path
 from aiohttp import web
 import server
+import requests
 
 # Get the project root (3 levels up from custom_nodes directory)
 # This file is at: docker/ComfyUI/custom_nodes/runpod-queue/__init__.py
@@ -183,6 +184,142 @@ async def get_latest_images(request):
         return web.json_response({
             "status": "error",
             "message": str(e)
+        }, status=500)
+
+
+@server.PromptServer.instance.routes.post('/runpod/toggle_workers')
+async def toggle_workers(request):
+    """Toggle the RunPod endpoint's min_workers between 0 and 1.
+
+    This allows users to easily switch between cost-saving mode (0 workers)
+    and instant-response mode (1 worker) without going to the RunPod dashboard.
+    """
+    try:
+        # Get credentials from environment
+        api_key = os.getenv('RUNPOD_API_KEY')
+        endpoint_id = os.getenv('RUNPOD_ENDPOINT_ID')
+
+        if not api_key:
+            return web.json_response({
+                "status": "error",
+                "message": "RUNPOD_API_KEY environment variable not set"
+            }, status=500)
+
+        if not endpoint_id:
+            return web.json_response({
+                "status": "error",
+                "message": "RUNPOD_ENDPOINT_ID environment variable not set"
+            }, status=500)
+
+        # GraphQL endpoint
+        url = "https://api.runpod.io/graphql"
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+
+        # First, query current state
+        query = """
+        query {
+            myself {
+                endpoints {
+                    id
+                    workersMin
+                    workersMax
+                }
+            }
+        }
+        """
+
+        response = requests.post(url, json={"query": query}, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Check for GraphQL errors
+        if "errors" in data:
+            error_msg = data["errors"][0].get("message", "Unknown GraphQL error")
+            return web.json_response({
+                "status": "error",
+                "message": f"GraphQL error: {error_msg}"
+            }, status=500)
+
+        # Extract current workersMin for our endpoint
+        endpoints = data.get("data", {}).get("myself", {}).get("endpoints", [])
+        if not endpoints:
+            return web.json_response({
+                "status": "error",
+                "message": "No endpoints found"
+            }, status=404)
+
+        # Find our specific endpoint
+        endpoint_data = None
+        for ep in endpoints:
+            if ep.get("id") == endpoint_id:
+                endpoint_data = ep
+                break
+
+        if not endpoint_data:
+            return web.json_response({
+                "status": "error",
+                "message": f"Endpoint {endpoint_id} not found"
+            }, status=404)
+
+        current_workers_min = endpoint_data.get("workersMin", 0)
+        workers_max = endpoint_data.get("workersMax", 3)
+
+        # Toggle: 0 -> 1, 1 -> 0
+        new_workers_min = 0 if current_workers_min >= 1 else 1
+
+        # Update endpoint with mutation
+        mutation = """
+        mutation {
+            updateEndpointWorkersMin(input: {
+                endpointId: "%s",
+                workerCount: %d
+            }) {
+                id
+                workersMin
+                workersMax
+            }
+        }
+        """ % (endpoint_id, new_workers_min)
+
+        response = requests.post(url, json={"query": mutation}, headers=headers, timeout=10)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Check for GraphQL errors
+        if "errors" in data:
+            error_msg = data["errors"][0].get("message", "Unknown GraphQL error")
+            return web.json_response({
+                "status": "error",
+                "message": f"GraphQL error: {error_msg}"
+            }, status=500)
+
+        # Success
+        return web.json_response({
+            "status": "success",
+            "workers_min": new_workers_min,
+            "workers_max": workers_max,
+            "message": f"Updated min_workers from {current_workers_min} to {new_workers_min}"
+        })
+
+    except requests.exceptions.Timeout:
+        return web.json_response({
+            "status": "error",
+            "message": "Request to RunPod API timed out"
+        }, status=504)
+    except requests.exceptions.RequestException as e:
+        return web.json_response({
+            "status": "error",
+            "message": f"Failed to communicate with RunPod API: {str(e)}"
+        }, status=500)
+    except Exception as e:
+        return web.json_response({
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}"
         }, status=500)
 
 

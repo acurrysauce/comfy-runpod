@@ -121,7 +121,15 @@ Single shared venv for ComfyUI + all custom nodes (managed by uv):
 - Main project has `pyproject.toml` and `uv.lock`
 - ComfyUI uses venv created by main project (no separate `uv init`)
 
-#### 8. Local ComfyUI Queue Button → RunPod API
+#### 8. Workflow Storage Strategy: Symlinked Outside Docker
+
+Symlink ComfyUI's workflow directory to project directory:
+- **Real directory**: `/comfy-runpod/workflows/` (git tracked, outside docker)
+- **Symlink**: `docker/ComfyUI/user/default/workflows` → points to real directory
+- **Benefit**: Workflows saved in ComfyUI go directly to project directory
+- **Docker safety**: Symlink is local-only, doesn't affect Docker builds (broken symlink in image is harmless)
+
+#### 9. Local ComfyUI Queue Button → RunPod API
 
 Custom node intercepts queue button to execute on RunPod:
 - Uses `@PromptServer.instance.routes.post('/prompt')` to override handler
@@ -152,6 +160,7 @@ Custom node intercepts queue button to execute on RunPod:
 1. **ComfyUI Installation** - Standard clone, matches production, uses `extra_model_paths.yaml`
 2. **Models Directory** - External, synced via runpodctl
 3. **Scripts** - `sync-models.py` (zip/transfer), `launch_comfy_with_api.py` (runtime patching)
+4. **Workflows Directory** - Symlinked from `docker/ComfyUI/user/default/workflows` → `/workflows/` (keeps workflows outside docker directory)
 
 ## Development Commands
 
@@ -164,6 +173,10 @@ uv init && uv sync
 git clone https://github.com/comfyanonymous/ComfyUI.git docker/ComfyUI
 cd docker/ComfyUI && uv venv && uv pip install -r requirements.txt
 # Install custom nodes: cd custom_nodes && git clone <repo> && uv pip install -r requirements.txt
+
+# Symlink workflows directory (keeps workflows outside docker directory)
+rm -rf docker/ComfyUI/user/default/workflows
+ln -s /absolute/path/to/comfy-runpod/workflows docker/ComfyUI/user/default/workflows
 
 # Docker tools
 curl -fsSL https://get.docker.com | sudo sh
