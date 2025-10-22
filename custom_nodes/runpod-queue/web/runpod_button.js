@@ -79,16 +79,133 @@ app.registerExtension({
                         const result = await response.json();
 
                         if (result.status === 'submitted') {
-                            alert('✓ Workflow submitted to RunPod!\n\nYour workflow is being processed on RunPod.\nResults will be saved to: output/\n\nCheck send-to-runpod.log for progress.');
+                            runpodBtn.textContent = "Processing...";
+
+                            // Record current time - any images modified after this are new
+                            const submissionTime = Date.now() / 1000; // Convert to seconds
+                            console.log(`RunPod: Workflow submitted at ${submissionTime}`);
+
+                            // Poll for new images
+                            const pollInterval = setInterval(async () => {
+                                try {
+                                    const imagesResponse = await fetch('/runpod/latest_images');
+                                    const imagesData = await imagesResponse.json();
+
+                                    console.log(`RunPod: Polling... Latest image time: ${imagesData.images.length > 0 ? imagesData.images[0].modified : 'none'}`);
+
+                                    if (imagesData.images.length > 0) {
+                                        const latestImageTime = imagesData.images[0].modified;
+
+                                        // Check if there are new images (modified after submission)
+                                        if (latestImageTime > submissionTime) {
+                                            console.log('RunPod: New images detected!');
+                                            clearInterval(pollInterval);
+
+                                            // Get all new images
+                                            const newImages = imagesData.images.filter(img => img.modified > submissionTime);
+
+                                            // Create overlay to display images
+                                            const overlay = document.createElement('div');
+                                            overlay.style.cssText = `
+                                                position: fixed;
+                                                top: 0;
+                                                left: 0;
+                                                width: 100%;
+                                                height: 100%;
+                                                background: rgba(0, 0, 0, 0.95);
+                                                z-index: 10000;
+                                                overflow: auto;
+                                                padding: 20px;
+                                                box-sizing: border-box;
+                                            `;
+
+                                            overlay.innerHTML = `
+                                                <div style="max-width: 1200px; margin: 0 auto;">
+                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                                        <h1 style="color: #4CAF50; margin: 0;">✓ RunPod Results (${newImages.length} image${newImages.length !== 1 ? 's' : ''})</h1>
+                                                        <button id="runpod-close-overlay" style="
+                                                            background: #f44336;
+                                                            color: white;
+                                                            border: none;
+                                                            padding: 10px 20px;
+                                                            border-radius: 4px;
+                                                            cursor: pointer;
+                                                            font-size: 16px;
+                                                            font-weight: 500;
+                                                        ">Close</button>
+                                                    </div>
+                                                    ${newImages.map(img => `
+                                                        <div style="
+                                                            margin: 20px 0;
+                                                            background: #2a2a2a;
+                                                            padding: 15px;
+                                                            border-radius: 8px;
+                                                        ">
+                                                            <div style="
+                                                                color: #888;
+                                                                font-size: 14px;
+                                                                margin-bottom: 10px;
+                                                            ">${img.filename}</div>
+                                                            <img src="${img.url}" alt="${img.filename}" style="
+                                                                max-width: 100%;
+                                                                height: auto;
+                                                                display: block;
+                                                                border-radius: 4px;
+                                                            ">
+                                                        </div>
+                                                    `).join('')}
+                                                </div>
+                                            `;
+
+                                            // Add overlay to page
+                                            document.body.appendChild(overlay);
+
+                                            // Close button handler
+                                            document.getElementById('runpod-close-overlay').onclick = () => {
+                                                document.body.removeChild(overlay);
+                                            };
+
+                                            // Close on escape key
+                                            const escapeHandler = (e) => {
+                                                if (e.key === 'Escape' && document.body.contains(overlay)) {
+                                                    document.body.removeChild(overlay);
+                                                    document.removeEventListener('keydown', escapeHandler);
+                                                }
+                                            };
+                                            document.addEventListener('keydown', escapeHandler);
+
+                                            // Re-enable button
+                                            runpodBtn.disabled = false;
+                                            runpodBtn.textContent = "Queue on RunPod";
+                                            runpodBtn.style.backgroundColor = "#4CAF50";
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error('Error polling for images:', err);
+                                    clearInterval(pollInterval);
+                                    runpodBtn.disabled = false;
+                                    runpodBtn.textContent = "Queue on RunPod";
+                                    runpodBtn.style.backgroundColor = "#4CAF50";
+                                }
+                            }, 3000); // Poll every 3 seconds
+
+                            // Timeout after 5 minutes
+                            setTimeout(() => {
+                                clearInterval(pollInterval);
+                                runpodBtn.disabled = false;
+                                runpodBtn.textContent = "Queue on RunPod";
+                                runpodBtn.style.backgroundColor = "#4CAF50";
+                            }, 300000);
                         } else {
                             alert('✗ Error: ' + result.message);
+                            runpodBtn.disabled = false;
+                            runpodBtn.textContent = "Queue on RunPod";
+                            runpodBtn.style.backgroundColor = "#4CAF50";
                         }
 
                     } catch (error) {
                         console.error('RunPod queue error:', error);
                         alert('✗ Failed to submit to RunPod: ' + error.message);
-                    } finally {
-                        // Re-enable button
                         runpodBtn.disabled = false;
                         runpodBtn.textContent = "Queue on RunPod";
                         runpodBtn.style.backgroundColor = "#4CAF50";

@@ -53,9 +53,10 @@ async def queue_on_runpod(request):
         # Run in background so we don't block the UI
         # Log output to file so we can debug issues
         # Set cwd to project root so ./output resolves correctly
+        # Use --no-open since we'll display images in the browser
         with open(log_file, 'a') as log:
             subprocess.Popen(
-                ['python3', str(script_path), '--workflow', str(temp_workflow)],
+                ['python3', str(script_path), '--workflow', str(temp_workflow), '--no-open'],
                 stdout=log,
                 stderr=log,
                 cwd=str(PROJECT_ROOT)
@@ -64,6 +65,47 @@ async def queue_on_runpod(request):
         return web.json_response({
             "status": "submitted",
             "message": "Workflow submitted to RunPod! Check terminal for progress."
+        })
+
+    except Exception as e:
+        return web.json_response({
+            "status": "error",
+            "message": str(e)
+        }, status=500)
+
+
+@server.PromptServer.instance.routes.get('/runpod/latest_images')
+async def get_latest_images(request):
+    """Get the latest images from output directory for display."""
+    try:
+        output_dir = PROJECT_ROOT / "output"
+
+        if not output_dir.exists():
+            return web.json_response({
+                "status": "success",
+                "images": []
+            })
+
+        # Get all PNG files sorted by modification time (newest first)
+        images = sorted(
+            output_dir.glob("*.png"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True
+        )
+
+        # Return the 10 most recent images with their URLs
+        recent_images = []
+        for img_path in images[:10]:
+            # ComfyUI serves output files via /view endpoint
+            recent_images.append({
+                "filename": img_path.name,
+                "url": f"/view?filename={img_path.name}",
+                "modified": img_path.stat().st_mtime
+            })
+
+        return web.json_response({
+            "status": "success",
+            "images": recent_images
         })
 
     except Exception as e:
