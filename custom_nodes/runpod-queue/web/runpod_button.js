@@ -101,8 +101,12 @@ app.registerExtension({
                                             console.log('RunPod: New images detected!');
                                             clearInterval(pollInterval);
 
-                                            // Get all new images
-                                            const newImages = imagesData.images.filter(img => img.modified > submissionTime);
+                                            // Get all new images and sort by node depth (deepest first = final result first)
+                                            const newImages = imagesData.images
+                                                .filter(img => img.modified > submissionTime)
+                                                .sort((a, b) => b.depth - a.depth);  // Reverse: deepest first
+
+                                            console.log('RunPod: Image depths:', newImages.map(img => ({name: img.filename, depth: img.depth})));
 
                                             // Create overlay to display images
                                             const overlay = document.createElement('div');
@@ -147,7 +151,8 @@ app.registerExtension({
                                                                 margin-bottom: 10px;
                                                             ">${img.filename}</div>
                                                             <img src="${img.url}" alt="${img.filename}" style="
-                                                                max-width: 100%;
+                                                                max-width: 512px;
+                                                                width: 100%;
                                                                 height: auto;
                                                                 display: block;
                                                                 border-radius: 4px;
