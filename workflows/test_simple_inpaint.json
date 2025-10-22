@@ -1,0 +1,174 @@
+{
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "sdxl_vae.safetensors"
+    }
+  },
+  "3": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6,
+      "model": ["1", 0],
+      "clip": ["1", 1]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 1],
+      "text": "simple green color patches, abstract grass texture, flat painted splotches, no detail, minimal stylized ground, mottled green surface, painterly color blobs, multiple shades of green, light green and dark green patches, game texture map, top-down flat view, seamless"
+    }
+  },
+  "5": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["3", 1],
+      "text": "blurry, low quality, photorealistic, 3d render, realistic grass blades, detailed grass strands, individual blades, modern brick wall"
+    }
+  },
+  "6": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "7": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["3", 0],
+      "positive": ["4", 0],
+      "negative": ["5", 0],
+      "latent_image": ["6", 0],
+      "seed": 42,
+      "control_after_generate": "fixed",
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["7", 0],
+      "vae": ["2", 0]
+    }
+  },
+  "9": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["8", 0],
+      "filename_prefix": "step1_grass_tile"
+    }
+  },
+  "11": {
+    "class_type": "ImagePadForOutpaint",
+    "inputs": {
+      "image": ["8", 0],
+      "left": 0,
+      "top": 0,
+      "right": 1024,
+      "bottom": 0,
+      "feathering": 0
+    }
+  },
+  "12": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["11", 0],
+      "filename_prefix": "step2_grass_plus_blank"
+    }
+  },
+  "400": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0_inpainting_0.1.safetensors"
+    }
+  },
+  "401": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6,
+      "model": ["400", 0],
+      "clip": ["400", 1]
+    }
+  },
+  "50": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["401", 1],
+      "text": "hand painted stone floor texture, light grey medieval stone blocks, pale grey cobblestone pavement, square cut stone tiles, clean light stone, castle courtyard floor, fantasy game texture, top-down flat view, light grey and pale beige stones, simple painted blocks, artisan stonework, seamless"
+    }
+  },
+  "51": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "clip": ["401", 1],
+      "text": "blurry, low quality, photorealistic, modern brick wall, grout lines, uniform tiles, polished surface, shiny, pristine, grass, plants, dirt, mud, green, dark grey, dark brown, black rocks"
+    }
+  },
+  "16": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["11", 0],
+      "vae": ["2", 0],
+      "mask": ["11", 1],
+      "grow_mask_by": 12
+    }
+  },
+  "17": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["401", 0],
+      "positive": ["50", 0],
+      "negative": ["51", 0],
+      "latent_image": ["16", 0],
+      "seed": 44,
+      "control_after_generate": "fixed",
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0
+    }
+  },
+  "18": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["17", 0],
+      "vae": ["2", 0]
+    }
+  },
+  "19": {
+    "class_type": "ImageCompositeMasked",
+    "inputs": {
+      "destination": ["11", 0],
+      "source": ["18", 0],
+      "mask": ["11", 1],
+      "x": 0,
+      "y": 0,
+      "resize_source": false
+    }
+  },
+  "20": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": ["19", 0],
+      "filename_prefix": "step3_grass_and_stone_FINAL"
+    }
+  }
+}
