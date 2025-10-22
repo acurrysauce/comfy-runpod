@@ -270,7 +270,12 @@ for filename, base64_data in reference_images.items():
 ```
 
 **Local Environment:**
-Local ComfyUI should mirror this structure - all inputs in `input/` directory with same subdirectory organization.
+Local ComfyUI should mirror this structure - all inputs in project's `input/` directory with same subdirectory organization.
+
+**Important:** The `input/` and `output/` directories are **external to the ComfyUI installation**:
+- **Local development**: Use `--input-directory` and `--output-directory` flags to point ComfyUI to project's `input/` and `output/` directories. This keeps the ComfyUI installation clean and prevents littering it with workflow-specific files.
+- **Docker/RunPod**: Directories are created at `/comfyui/input/` and `/comfyui/output/` (outside the ComfyUI installation directory) and passed to ComfyUI via command-line flags.
+- **Benefit**: ComfyUI installation stays pristine and can be upgraded without losing or mixing workflow data.
 
 #### 7. Virtual Environment Strategy: Single Shared venv
 
@@ -364,6 +369,73 @@ Run a local proxy server on port 8188 that:
 - ✅ Can toggle between local and remote execution
 - ✅ Seamless UI experience
 - ✅ Automatic result handling
+
+#### Custom Node Development Workflow
+
+**Implementation:** RunPod Queue button is implemented as a ComfyUI custom node.
+
+**Directory Structure:**
+```
+/home/acurry/comfy-runpod/
+├── custom_nodes/                          # Source of truth (tracked in git)
+│   └── runpod-queue/
+│       ├── __init__.py                    # Backend (Python routes)
+│       └── web/
+│           └── runpod_button.js           # Frontend (JavaScript UI)
+│
+└── docker/ComfyUI/                        # ComfyUI installation (gitignored)
+    └── custom_nodes/
+        └── runpod-queue/                  # Active copy (loaded by ComfyUI)
+            ├── __init__.py
+            └── web/
+                └── runpod_button.js
+```
+
+**Why Two Copies:**
+- `docker/ComfyUI/` is gitignored (it's a git clone of ComfyUI itself)
+- Can't track our custom node inside a gitignored directory
+- Solution: Store source in `custom_nodes/` (tracked), copy to `docker/ComfyUI/custom_nodes/` (active)
+
+**Development Workflow:**
+1. Edit files in `/home/acurry/comfy-runpod/custom_nodes/runpod-queue/`
+2. Commit changes to git
+3. Copy to `/home/acurry/comfy-runpod/docker/ComfyUI/custom_nodes/runpod-queue/`
+4. Restart ComfyUI to load changes
+
+**Copy Command:**
+```bash
+cp -r /home/acurry/comfy-runpod/custom_nodes/runpod-queue/* \
+      /home/acurry/comfy-runpod/docker/ComfyUI/custom_nodes/runpod-queue/
+```
+
+**Alternative:** Use a symlink (not recommended - may cause issues with ComfyUI's module loading):
+```bash
+ln -s /home/acurry/comfy-runpod/custom_nodes/runpod-queue \
+      /home/acurry/comfy-runpod/docker/ComfyUI/custom_nodes/runpod-queue
+```
+
+**Custom Node Features:**
+- **Backend (`__init__.py`):**
+  - Registers custom API routes with `@server.PromptServer.instance.routes.post()`
+  - `/runpod/queue` - Submits workflow to RunPod endpoint
+  - `/runpod/latest_images` - Returns recent images with depth info for sorting
+  - Calculates node depth from workflow graph for intelligent image ordering
+
+- **Frontend (`web/runpod_button.js`):**
+  - Uses ComfyUI extension API: `app.registerExtension()`
+  - Adds "Queue on RunPod" button to UI
+  - Polls for completion and displays results in browser overlay
+  - Sorts images by workflow graph depth (final results first)
+
+**Image Sorting by Depth:**
+The custom node analyzes the workflow graph to determine execution order:
+1. Extract workflow JSON when button is clicked
+2. Calculate depth for each node (longest path from inputs)
+3. Map SaveImage nodes to their depths
+4. When images are downloaded, lookup depth by filename prefix
+5. Sort images by depth (deepest first = final result on top)
+
+This ensures images always display in logical order regardless of naming.
 
 ### Component Breakdown
 
@@ -474,10 +546,19 @@ runpodctl config
 ```bash
 cd local-comfy
 source .venv/bin/activate
-python main.py --listen 127.0.0.1 --port 8188 --extra-model-paths-config extra_model_paths.yaml
+
+# Launch with external input/output directories (keeps ComfyUI installation clean)
+python main.py \
+  --listen 127.0.0.1 \
+  --port 8188 \
+  --input-directory /absolute/path/to/comfy-runpod/input \
+  --output-directory /absolute/path/to/comfy-runpod/output \
+  --extra-model-paths-config extra_model_paths.yaml
 
 # Access UI at http://localhost:8188
 ```
+
+**Note:** Using `--input-directory` and `--output-directory` keeps your ComfyUI installation clean by storing all inputs/outputs in the project directory, not inside the ComfyUI installation.
 
 #### Run ComfyUI Locally (with RunPod API Routing)
 ```bash
