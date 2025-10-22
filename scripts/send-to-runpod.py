@@ -447,16 +447,18 @@ def open_images(image_paths: List[str]):
     print(f"\nOpening {len(image_paths)} image(s)...")
 
     import platform
+    import subprocess
     system = platform.system()
 
     for image_path in image_paths:
         try:
             if system == "Darwin":  # macOS
-                os.system(f'open "{image_path}"')
+                subprocess.Popen(['open', image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             elif system == "Windows":
-                os.system(f'start "" "{image_path}"')
+                subprocess.Popen(['cmd', '/c', 'start', '', image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             else:  # Linux
-                os.system(f'xdg-open "{image_path}"')
+                subprocess.Popen(['xdg-open', image_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            print(f"  ✓ Opened: {os.path.basename(image_path)}")
         except Exception as e:
             print(f"  ⚠ Failed to open {image_path}: {e}")
 
