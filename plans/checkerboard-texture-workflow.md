@@ -96,29 +96,29 @@ The center 1024x1024 area is the most complex region:
 - Output: Grass tile in bottom-right
 - Result: All four quadrants filled, but three hard seams (center vertical, left vertical, right vertical)
 
-**Stage 3: Blend Bottom Center Vertical Seam** (Stone ↔ Grass)
+**Stage 3: Blend Bottom Center (Vertical Seam - Stone left ↔ Grass right)**
 - Mask: Vertical strip at bottom center (x=512-1536, y=1024-2048) [1024px wide, centered on x=1024]
 - Blur mask edges horizontally (radius 48)
 - Use grass/stone mixing prompt (same as top center blend)
 - Seed: 46
 - Denoise: 0.85 (high blend intensity)
-- Output: Bottom row now has stone→grass blend (mirrors top grass→stone)
+- Output: Bottom row now has stone→grass transition (mirrors top grass→stone)
 
-**Stage 4: Blend Left Vertical Seam** (Grass top ↔ Stone bottom)
-- Mask: Vertical strip at left edge (x=0-512, y=512-1536) [512px wide, 1024px tall]
+**Stage 4: Blend Left Edge (Horizontal Seam - Grass top ↔ Stone bottom)**
+- Mask: Horizontal strip at left edge (x=0-512, y=512-1536) [512px wide, 1024px tall]
 - Blur mask edges vertically (radius 48)
 - Use grass/stone mixing prompt
 - Seed: 47
 - Denoise: 0.85
-- Output: Left edge blended
+- Output: Left edge blended vertically (grass transitions to stone top-to-bottom)
 
-**Stage 5: Blend Right Vertical Seam** (Stone top ↔ Grass bottom)
-- Mask: Vertical strip at right edge (x=1536-2048, y=512-1536) [512px wide, 1024px tall]
+**Stage 5: Blend Right Edge (Horizontal Seam - Stone top ↔ Grass bottom)**
+- Mask: Horizontal strip at right edge (x=1536-2048, y=512-1536) [512px wide, 1024px tall]
 - Blur mask edges vertically (radius 48)
 - Use grass/stone mixing prompt
 - Seed: 48
 - Denoise: 0.85
-- Output: Right edge blended, all seams now natural
+- Output: Right edge blended vertically (stone transitions to grass top-to-bottom)
 
 **Note:** Right vertical mask (x=1536-2048) intentionally overlaps bottom center mask (x=512-1536) by 24px. This is acceptable for testing - we'll verify if overlapping blends produce good results.
 
@@ -161,35 +161,35 @@ The center 1024x1024 area is the most complex region:
 
 **Deliverable:** 2048x2048 with all four quadrants filled, three hard seams
 
-### Phase 3: Blend Bottom Center Vertical Seam
+### Phase 3: Blend Bottom Center (Vertical Seam)
 **Goal:** Blend stone/grass in bottom row (mirrors top row blend)
 
 **Tasks:**
-- Add Create Rect Mask for bottom center (x=512, y=1024, w=1024, h=1024)
-- Add Blur node with radius 48, sigma_factor 2.0 (horizontal blur)
+- Add Create Rect Mask for bottom center vertical seam (x=512, y=1024, w=1024, h=1024)
+- Add Blur node with radius 48, sigma_factor 2.0 (horizontal blur for vertical seam)
 - Add Image To Mask converter
 - Add VAEEncodeForInpaint
 - Add KSampler with grass/stone mixing prompt, seed 46, denoise 0.85
 - Add VAEDecode + ImageCompositeMasked
 - Add SaveImage (bottom row now blended)
 
-**Deliverable:** Bottom row has natural stone→grass transition
+**Deliverable:** Bottom row has natural stone→grass transition along vertical seam
 
-### Phase 4: Blend Vertical Seams (Left and Right Edges)
-**Goal:** Blend left (grass/stone) and right (stone/grass) vertical edges
+### Phase 4: Blend Edge Seams (Horizontal Seams at Left and Right)
+**Goal:** Blend horizontal seams at left edge (grass/stone) and right edge (stone/grass)
 
 **Tasks:**
-- Add Create Rect Mask for left vertical (x=0, y=512, w=512, h=1024)
+- Add Create Rect Mask for left horizontal seam (x=0, y=512, w=512, h=1024)
 - Add Blur + Image To Mask + VAEEncodeForInpaint
 - Add KSampler with seed 47, denoise 0.85
 - Add VAEDecode + ImageCompositeMasked
-- Add Create Rect Mask for right vertical (x=1536, y=512, w=512, h=1024)
+- Add Create Rect Mask for right horizontal seam (x=1536, y=512, w=512, h=1024)
 - Add Blur + Image To Mask + VAEEncodeForInpaint
 - Add KSampler with seed 48, denoise 0.85
 - Add VAEDecode + ImageCompositeMasked
 - Add SaveImage for final result
 
-**Deliverable:** All three seams blended naturally (note: right vertical overlaps bottom center by 24px for testing)
+**Deliverable:** All three seams blended naturally (note: right mask overlaps bottom center by 24px for testing)
 
 ### Phase 5: Testing and Refinement
 **Goal:** Ensure quality across all seams and optimize parameters
@@ -327,11 +327,14 @@ The center 1024x1024 area is the most complex region:
 
 ### Decision 3: Blend Prompt Strategy
 
-**Challenge:** Blend three seams (bottom center vertical, left vertical, right vertical)
+**Challenge:** Blend three seams:
+1. Bottom center vertical seam (stone left ↔ grass right)
+2. Left edge horizontal seam (grass top ↔ stone bottom)
+3. Right edge horizontal seam (stone top ↔ grass bottom)
 
 **Decision:** Reuse existing grass/stone mixing prompt for all three blends
 
-**Prompt (same as original horizontal blend):**
+**Prompt (same as original blend):**
 ```
 natural transition between grass and stone, grass growing between stone cracks,
 moss on stones, weathered stone edges with grass, organic boundary, small grass
@@ -341,8 +344,8 @@ blend, hand painted game texture
 
 **Rationale:**
 - Each seam is simple 2-material transition (grass ↔ stone)
-- Proven prompt that already works well for horizontal blend
-- Same prompt works for vertical blends (rotated context)
+- Proven prompt that already works well for original vertical seam blend
+- Same prompt works for horizontal seams (AI understands context from mask)
 - Consistency across all three blend zones
 - Simpler = more predictable results
 
@@ -353,9 +356,9 @@ blend, hand painted game texture
 **Decision:**
 - Bottom-left stone: seed 44 (matches top-right stone)
 - Bottom-right grass: seed 42 (matches top-left grass)
-- Bottom center blend: seed 46
-- Left vertical blend: seed 47
-- Right vertical blend: seed 48
+- Bottom center vertical seam blend: seed 46
+- Left edge horizontal seam blend: seed 47
+- Right edge horizontal seam blend: seed 48
 
 **Rationale:**
 - Bottom tiles match top tiles for style consistency
@@ -376,20 +379,20 @@ blend, hand painted game texture
   - Bottom-right: Grass (newly generated, matches top-left style)
   - Three visible hard seams (bottom center vertical, left vertical, right vertical)
 
-### Phase 3 Testing: Bottom Center Blend
-- **Method:** Inspect bottom center vertical seam
+### Phase 3 Testing: Bottom Center Vertical Seam Blend
+- **Method:** Inspect bottom center area (vertical seam running top-to-bottom)
 - **Success Criteria:**
-  - Bottom row has smooth stone→grass transition
+  - Bottom row has smooth stone→grass transition (left to right)
   - Mirrors top row's grass→stone transition
   - No hard vertical line at x=1024 in bottom half
 
-### Phase 4 Testing: Vertical Edge Blends
-- **Method:** Inspect left and right edges
+### Phase 4 Testing: Edge Horizontal Seam Blends
+- **Method:** Inspect left and right edges (horizontal seams running left-to-right)
 - **Success Criteria:**
-  - Left edge: Smooth grass (top) ↔ stone (bottom) transition
-  - Right edge: Smooth stone (top) ↔ grass (bottom) transition
-  - No hard horizontal lines at y=1024 on edges
-  - Natural material mixing vertically
+  - Left edge: Smooth grass (top) ↔ stone (bottom) transition (vertical direction)
+  - Right edge: Smooth stone (top) ↔ grass (bottom) transition (vertical direction)
+  - No hard horizontal lines at y=1024 on left/right edges
+  - Natural material mixing in vertical direction
 
 ### Phase 5 Testing: Tiling and Overall Quality
 - **Method:** Tile result 2x2 and check all seams
@@ -407,9 +410,9 @@ blend, hand painted game texture
   - Stage 1 (load + pad): <1s
   - Stage 2a (bottom-left stone): ~30s
   - Stage 2b (bottom-right grass): ~30s
-  - Stage 3 (bottom center blend): ~40s
-  - Stage 4 (left vertical blend): ~40s
-  - Stage 5 (right vertical blend): ~40s
+  - Stage 3 (bottom center vertical seam blend): ~40s
+  - Stage 4 (left edge horizontal seam blend): ~40s
+  - Stage 5 (right edge horizontal seam blend): ~40s
   - **Total: ~180-210 seconds (~3-3.5 minutes)**
   - Comparable to original horizontal blend workflow
 
@@ -418,10 +421,10 @@ blend, hand painted game texture
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
 | Bottom tiles don't match top tile style despite same seeds | Low | Medium | Use same LoRA strength, CFG, steps. Same seeds as matching top tiles ensure consistency. |
-| Vertical seams interfere with top row blend | Low | Medium | Carefully position vertical masks to start at y=512 (below top blend zone). |
-| Overlapping blends (right vertical + bottom center) cause artifacts | Medium | Medium | Testing with 24px overlap. May need to adjust if problematic. |
+| Horizontal seam blends interfere with top row blend | Low | Medium | Carefully position masks to start at y=512 (below top blend zone). |
+| Overlapping blends (right edge + bottom center) cause artifacts | Medium | Medium | Testing with 24px overlap. May need to adjust if problematic. |
 | Workflow too slow (>3.5 minutes) | Low | Low | Acceptable for high-quality result. Can optimize by reducing steps if needed. |
-| Blend prompt produces unexpected results on vertical seams | Low | Medium | Same proven prompt from horizontal blend. Can adjust denoise if needed. |
+| Blend prompt produces unexpected results on horizontal seams | Low | Medium | Same proven prompt from vertical seam blend. Can adjust denoise if needed. |
 | Memory exhaustion (2048x2048 image + multiple passes) | Low | High | Monitor VRAM. RunPod H100 has adequate memory for this workflow. |
 
 ## Coordinate Reference
