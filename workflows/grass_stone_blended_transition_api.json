@@ -1,0 +1,595 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint - Base"
+    }
+  },
+  "2": {
+    "inputs": {
+      "vae_name": "sdxl_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "3": {
+    "inputs": {
+      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6,
+      "model": [
+        "1",
+        0
+      ],
+      "clip": [
+        "1",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA - Grass"
+    }
+  },
+  "4": {
+    "inputs": {
+      "text": "simple green color patches, abstract grass texture, flat painted splotches, no detail, minimal stylized ground, mottled green surface, painterly color blobs, multiple shades of green, light green and dark green patches, game texture map, top-down flat view, seamless",
+      "clip": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Initial Grass Base"
+    }
+  },
+  "5": {
+    "inputs": {
+      "text": "blurry, low quality, photorealistic, 3d render, realistic grass blades, detailed grass strands, individual blades, modern brick wall",
+      "clip": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt - Grass"
+    }
+  },
+  "6": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent 1024x1024"
+    }
+  },
+  "7": {
+    "inputs": {
+      "seed": 42,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "3",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Generate Base Grass"
+    }
+  },
+  "8": {
+    "inputs": {
+      "samples": [
+        "7",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Base Grass"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "step1_grass_base",
+      "images": [
+        "8",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save - Grass Base"
+    }
+  },
+  "10": {
+    "inputs": {
+      "text": "hand painted grass texture, stylized grass patch, painted grass clumps, green grass tufts, varied grass colors, light and dark green grass, painterly grass texture, game texture, top-down flat view, seamless, textured grass surface",
+      "clip": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Refine Grass"
+    }
+  },
+  "11": {
+    "inputs": {
+      "left": 0,
+      "top": 0,
+      "right": 1024,
+      "bottom": 0,
+      "feathering": 0,
+      "image": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Right 1024px"
+    }
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "step3_grass_plus_blank",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save - Padded Canvas"
+    }
+  },
+  "13": {
+    "inputs": {
+      "pixels": [
+        "8",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "Encode Grass for Refinement"
+    }
+  },
+  "14": {
+    "inputs": {
+      "seed": 43,
+      "steps": 20,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.8,
+      "model": [
+        "3",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "13",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Refine Grass Texture"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "14",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Refined Grass"
+    }
+  },
+  "16": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "11",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Encode for Stone Inpaint"
+    }
+  },
+  "17": {
+    "inputs": {
+      "seed": 44,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "50",
+        0
+      ],
+      "negative": [
+        "51",
+        0
+      ],
+      "latent_image": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Generate Stone Floor"
+    }
+  },
+  "18": {
+    "inputs": {
+      "samples": [
+        "17",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Stone"
+    }
+  },
+  "19": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "11",
+        0
+      ],
+      "source": [
+        "18",
+        0
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Stone onto Canvas"
+    }
+  },
+  "20": {
+    "inputs": {
+      "filename_prefix": "step4_grass_stone_BLENDED_FINAL",
+      "images": [
+        "106",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save - Final Blended Result"
+    }
+  },
+  "21": {
+    "inputs": {
+      "filename_prefix": "step2_grass_refined",
+      "images": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save - Grass Refined"
+    }
+  },
+  "22": {
+    "inputs": {
+      "filename_prefix": "step3b_grass_and_stone_before_blend",
+      "images": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save - After Stone (Before Blend)"
+    }
+  },
+  "50": {
+    "inputs": {
+      "text": "hand painted stone floor texture, light grey medieval stone blocks, pale grey cobblestone pavement, square cut stone tiles, clean light stone, castle courtyard floor, fantasy game texture, top-down flat view, light grey and pale beige stones, simple painted blocks, artisan stonework, seamless",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Stone Floor"
+    }
+  },
+  "51": {
+    "inputs": {
+      "text": "blurry, low quality, photorealistic, modern brick wall, grout lines, uniform tiles, polished surface, shiny, pristine, grass, plants, dirt, mud, green, dark grey, dark brown, black rocks",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt - Stone"
+    }
+  },
+  "100": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 774,
+      "y": 0,
+      "width": 1024,
+      "height": 1024,
+      "image_width": 2048,
+      "image_height": 1024
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Transition Zone Rect (500px wide)"
+    }
+  },
+  "101": {
+    "inputs": {
+      "text": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Blended Transition"
+    }
+  },
+  "102": {
+    "inputs": {
+      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative - Avoid Hard Edges"
+    }
+  },
+  "103": {
+    "inputs": {
+      "grow_mask_by": 0,
+      "pixels": [
+        "19",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "114",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Encode for Blend Pass"
+    }
+  },
+  "104": {
+    "inputs": {
+      "seed": 45,
+      "steps": 40,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.85,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "101",
+        0
+      ],
+      "negative": [
+        "102",
+        0
+      ],
+      "latent_image": [
+        "103",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Blend Transition Zone (High Denoise)"
+    }
+  },
+  "105": {
+    "inputs": {
+      "samples": [
+        "104",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Blended Result"
+    }
+  },
+  "106": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "19",
+        0
+      ],
+      "source": [
+        "105",
+        0
+      ],
+      "mask": [
+        "114",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Blended Transition"
+    }
+  },
+  "112": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Convert Rect to MASK"
+    }
+  },
+  "113": {
+    "inputs": {
+      "radius": 48,
+      "sigma_factor": 2,
+      "image": [
+        "100",
+        0
+      ]
+    },
+    "class_type": "Blur",
+    "_meta": {
+      "title": "Blur Transition Mask Edges"
+    }
+  },
+  "114": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "113",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Convert Blurred Rect to MASK"
+    }
+  },
+  "400": {
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0_inpainting_0.1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint - Inpainting"
+    }
+  },
+  "401": {
+    "inputs": {
+      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6,
+      "model": [
+        "400",
+        0
+      ],
+      "clip": [
+        "400",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA - Stone"
+    }
+  }
+}
