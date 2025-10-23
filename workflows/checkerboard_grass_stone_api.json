@@ -26,6 +26,19 @@
       "title": "Pad Bottom 1024px"
     }
   },
+  "217": {
+    "inputs": {
+      "filename_prefix": "debug_step0_after_padding",
+      "images": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - After Padding"
+    }
+  },
   "202": {
     "inputs": {
       "mode": "pixels",
@@ -57,7 +70,7 @@
   },
   "204": {
     "inputs": {
-      "grow_mask_by": 12,
+      "grow_mask_by": 0,
       "pixels": [
         "201",
         0
@@ -145,6 +158,19 @@
       "title": "Composite Bottom-Left Stone"
     }
   },
+  "215": {
+    "inputs": {
+      "filename_prefix": "debug_step1_after_bottom_left_stone",
+      "images": [
+        "207",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - After Bottom-Left Stone"
+    }
+  },
   "208": {
     "inputs": {
       "mode": "pixels",
@@ -176,7 +202,7 @@
   },
   "210": {
     "inputs": {
-      "grow_mask_by": 12,
+      "grow_mask_by": 0,
       "pixels": [
         "207",
         0
@@ -262,6 +288,19 @@
     "class_type": "ImageCompositeMasked",
     "_meta": {
       "title": "Composite Bottom-Right Grass"
+    }
+  },
+  "216": {
+    "inputs": {
+      "filename_prefix": "debug_step2_after_bottom_right_grass",
+      "images": [
+        "213",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - After Bottom-Right Grass"
     }
   },
   "214": {
