@@ -2,16 +2,15 @@
 
 ## Overview
 
-Create a ComfyUI workflow that generates a 2x2 checkerboard pattern of blended floor textures (2048x2048 total). Starting from the grass→stone horizontal blend (2048x1024), extend downward 1024px and create:
-- **Top row**: Grass (left) → Stone (right) with horizontal blend
-- **Bottom row**: Stone (left) → Grass (right) with horizontal blend
+Create a ComfyUI workflow that generates a 2x2 checkerboard pattern of blended floor textures (2048x2048 total). Starting from a pre-generated grass→stone horizontal blend (2048x1024), extend downward 1024px and create:
+- **Top row**: Grass (left) → Stone (right) with horizontal blend (loaded from input)
+- **Bottom row**: Stone (left) → Grass (right) (generated as separate tiles)
 - **Vertical seams**: Blended transitions where materials meet vertically
-- **Center point**: Complex 4-way blend where all materials converge
 
 **Goals:**
-- Reuse grass and stone prompts/seeds for consistency
+- Load pre-generated top row from input directory
+- Generate bottom tiles separately for consistency
 - Create checkerboard layout with natural blended seams
-- Handle complex center junction where 4 tiles meet
 - Maintain seamless tiling capability
 
 ## Technical Analysis
@@ -98,7 +97,7 @@ The center 1024x1024 area is the most complex region:
 - Result: All four quadrants filled, but three hard seams (center vertical, left vertical, right vertical)
 
 **Stage 3: Blend Bottom Center Vertical Seam** (Stone ↔ Grass)
-- Mask: Vertical strip at bottom center (x=524-1524, y=1024-2048) [1000px wide, centered on x=1024]
+- Mask: Vertical strip at bottom center (x=512-1536, y=1024-2048) [1024px wide, centered on x=1024]
 - Blur mask edges horizontally (radius 48)
 - Use grass/stone mixing prompt (same as top center blend)
 - Seed: 46
@@ -106,7 +105,7 @@ The center 1024x1024 area is the most complex region:
 - Output: Bottom row now has stone→grass blend (mirrors top grass→stone)
 
 **Stage 4: Blend Left Vertical Seam** (Grass top ↔ Stone bottom)
-- Mask: Vertical strip at left edge (x=0-500, y=512-1536) [500px wide, 1024px tall]
+- Mask: Vertical strip at left edge (x=0-512, y=512-1536) [512px wide, 1024px tall]
 - Blur mask edges vertically (radius 48)
 - Use grass/stone mixing prompt
 - Seed: 47
@@ -114,12 +113,14 @@ The center 1024x1024 area is the most complex region:
 - Output: Left edge blended
 
 **Stage 5: Blend Right Vertical Seam** (Stone top ↔ Grass bottom)
-- Mask: Vertical strip at right edge (x=1548-2048, y=512-1536) [500px wide, 1024px tall]
+- Mask: Vertical strip at right edge (x=1536-2048, y=512-1536) [512px wide, 1024px tall]
 - Blur mask edges vertically (radius 48)
 - Use grass/stone mixing prompt
 - Seed: 48
 - Denoise: 0.85
 - Output: Right edge blended, all seams now natural
+
+**Note:** Right vertical mask (x=1536-2048) intentionally overlaps bottom center mask (x=512-1536) by 24px. This is acceptable for testing - we'll verify if overlapping blends produce good results.
 
 **Benefits of This Approach:**
 1. **Reuses proven technique** - Each blend is same as original horizontal blend (just rotated/positioned)
@@ -164,7 +165,7 @@ The center 1024x1024 area is the most complex region:
 **Goal:** Blend stone/grass in bottom row (mirrors top row blend)
 
 **Tasks:**
-- Add Create Rect Mask for bottom center (x=524, y=1024, w=1000, h=1024)
+- Add Create Rect Mask for bottom center (x=512, y=1024, w=1024, h=1024)
 - Add Blur node with radius 48, sigma_factor 2.0 (horizontal blur)
 - Add Image To Mask converter
 - Add VAEEncodeForInpaint
@@ -178,17 +179,17 @@ The center 1024x1024 area is the most complex region:
 **Goal:** Blend left (grass/stone) and right (stone/grass) vertical edges
 
 **Tasks:**
-- Add Create Rect Mask for left vertical (x=0, y=512, w=500, h=1024)
+- Add Create Rect Mask for left vertical (x=0, y=512, w=512, h=1024)
 - Add Blur + Image To Mask + VAEEncodeForInpaint
 - Add KSampler with seed 47, denoise 0.85
 - Add VAEDecode + ImageCompositeMasked
-- Add Create Rect Mask for right vertical (x=1548, y=512, w=500, h=1024)
+- Add Create Rect Mask for right vertical (x=1536, y=512, w=512, h=1024)
 - Add Blur + Image To Mask + VAEEncodeForInpaint
 - Add KSampler with seed 48, denoise 0.85
 - Add VAEDecode + ImageCompositeMasked
 - Add SaveImage for final result
 
-**Deliverable:** All three seams blended naturally
+**Deliverable:** All three seams blended naturally (note: right vertical overlaps bottom center by 24px for testing)
 
 ### Phase 5: Testing and Refinement
 **Goal:** Ensure quality across all seams and optimize parameters
@@ -196,24 +197,11 @@ The center 1024x1024 area is the most complex region:
 **Tasks:**
 - Test full workflow end-to-end
 - Verify checkerboard pattern recognizable
-- Check all three blend zones (bottom center, left edge, right edge)
+- Check all three blend zones (bottom center vertical, left vertical, right vertical)
 - Verify no visible hard seams
 - Test seamless tiling (tile 2x2)
+- Evaluate overlapping blend region (bottom center + right vertical)
 - Adjust denoise/blur if needed
-
-**Deliverable:** Production-ready workflow with validated results
-
-### Phase 5: Testing and Refinement
-**Goal:** Ensure quality across all seams and optimize parameters
-
-**Tasks:**
-- Test full workflow end-to-end
-- Verify all four quadrants have consistent style
-- Check all three blend zones (left vertical, right vertical, center)
-- Verify seamless tiling (tile result 2x2 and check boundaries)
-- Adjust denoise values if any seams too hard/soft
-- Optimize blend zone widths if needed
-- Tune blur parameters for smooth transitions
 
 **Deliverable:** Production-ready workflow with validated results
 
@@ -240,30 +228,31 @@ The center 1024x1024 area is the most complex region:
 - AI naturally creates horizontal blend in bottom row
 - Mirrors top row architecture (grass→stone vs stone→grass)
 - Avoids 4-way complexity - center is just two horizontal blends meeting
-- **SELECTED:** This is now our main approach (after user feedback)
 
-**Cons addressed:**
-- Consistency: Use similar prompts/LoRA settings as top row
-- Quality: Let AI handle bottom horizontal blend (proven technique)
-- Center: Much simpler - blend two similar things rather than four materials
+**Cons:**
+- Difficult to generate high-quality gradient in single pass
+- Less control over individual tile consistency
+- User feedback: Separate tiles + blending is more reliable
+- **REJECTED:** Replaced by Alternative 2 approach
 
 ### Alternative 2: Generate All Four Tiles Separately, Then Blend All Seams
 
 **Approach:**
-1. Generate 4 separate 1024x1024 tiles
-2. Composite into 2048x2048 grid
-3. Blend all seams (3 total: left vertical, right vertical, center horizontal)
+1. Load pre-generated top row (grass→stone with blend)
+2. Generate bottom-left stone tile (seed 44)
+3. Generate bottom-right grass tile (seed 42)
+4. Blend three seams (bottom center vertical, left vertical, right vertical)
 
 **Pros:**
-- Very modular
-- Could parallelize tile generation
-- Clear separation of concerns
+- Very modular and clear separation of concerns
+- Leverages existing top row workflow
+- Separate tiles ensure consistent style
+- Each blend is simple 2-material transition
+- **SELECTED:** This is the implemented approach
 
 **Cons:**
-- Top row already has horizontal blend built-in, would override it
-- More complex mask management
-- Wastes compute re-blending already blended top row
-- **Rejected:** Doesn't leverage existing grass→stone workflow
+- More nodes than single-pass bottom row
+- Three separate blend passes (acceptable for quality)
 
 ### Alternative 3: Hierarchical Blending (Blend Pairs, Then Blend Pairs)
 
@@ -302,7 +291,7 @@ The center 1024x1024 area is the most complex region:
 - Diminishing returns after 2-3 iterations
 - **Rejected:** Overengineered for this use case
 
-**Selected Solution:** Alternative 1 (revised after user feedback) - Load input image, pad downward, generate bottom row as single horizontal blend, blend center horizontal seam. Simpler, more scalable, avoids 4-way complexity.
+**Selected Solution:** Alternative 2 - Load input image, pad downward, generate bottom tiles separately (stone left, grass right), blend three seams (bottom center vertical, left vertical, right vertical). Modular approach with proven blending technique.
 
 ## Key Design Decisions
 
@@ -327,20 +316,20 @@ The center 1024x1024 area is the most complex region:
 - **A:** Generate two separate tiles (stone left, grass right) then blend
 - **B:** Generate entire bottom row as single inpaint with horizontal blend
 
-**Decision:** Option B (single bottom row inpaint)
+**Decision:** Option A (separate tiles then blend)
 
 **Rationale (user feedback):**
-- Simpler center blend (two horizontal blends meeting, not 4-way materials)
-- More scalable (can add more rows iteratively)
-- Proven technique (same strategy as top row)
-- Avoids complex 4-way junction problem entirely
-- Future-proof for 3+ material combinations
+- More reliable quality - proven technique for individual tiles
+- Better control over material consistency
+- Simple 2-material blends instead of complex gradients
+- Matches tile-based approach for clarity
+- Each blend zone independent and tunable
 
-### Decision 3: Center Blend Prompt Strategy (Simplified)
+### Decision 3: Blend Prompt Strategy
 
-**Challenge:** Blend horizontal center seam between two horizontal blends
+**Challenge:** Blend three seams (bottom center vertical, left vertical, right vertical)
 
-**Decision:** Reuse existing grass/stone mixing prompt
+**Decision:** Reuse existing grass/stone mixing prompt for all three blends
 
 **Prompt (same as original horizontal blend):**
 ```
@@ -351,23 +340,29 @@ blend, hand painted game texture
 ```
 
 **Rationale:**
-- Center seam is just blending two similar horizontal transitions (not 4 materials)
-- Proven prompt that already works well
-- No need for complex 4-way description
+- Each seam is simple 2-material transition (grass ↔ stone)
+- Proven prompt that already works well for horizontal blend
+- Same prompt works for vertical blends (rotated context)
+- Consistency across all three blend zones
 - Simpler = more predictable results
 
-### Decision 4: Seed Management for Bottom Row
+### Decision 4: Seed Management
 
-**Challenge:** Bottom row should be stylistically consistent but not identical to top
+**Challenge:** Maintain consistent style across tiles and blends
 
-**Decision:** Use new seed (46) for bottom row inpaint
+**Decision:**
+- Bottom-left stone: seed 44 (matches top-right stone)
+- Bottom-right grass: seed 42 (matches top-left grass)
+- Bottom center blend: seed 46
+- Left vertical blend: seed 47
+- Right vertical blend: seed 48
 
 **Rationale:**
-- Different seed provides variation (not exact mirror)
-- Same LoRA/prompts ensure consistent style
-- Allows natural texture variation across checkerboard
-- Avoids identical repetition (more organic)
-- Can tune if too different/similar in testing
+- Bottom tiles match top tiles for style consistency
+- Different seeds for each blend zone provide variation
+- Same LoRA/prompts ensure overall cohesion
+- Allows natural texture variation without repetition
+- Can tune individual zones if needed during testing
 
 ## Testing Strategy
 
@@ -422,13 +417,12 @@ blend, hand painted game texture
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Center 4-way blend produces chaotic/incoherent result | Medium | High | Use high CFG (8-9) and detailed prompt. Fall back to multi-pass if needed. |
-| Bottom tiles don't match top tile style despite same seeds | Low | Medium | Use same LoRA strength, CFG, steps. Add seed variation if exact match not needed. |
-| Vertical seams interfere with horizontal top blend | Low | Medium | Carefully position vertical masks to start at y=512 (below top blend). |
-| Workflow too slow (>5 minutes) | Medium | Low | Acceptable for high-quality result. Could optimize by reducing steps. |
-| Complex prompt ignored, falls back to simple grass/stone | Medium | Medium | Test prompt early. Simplify if AI struggles. Consider negative prompt emphasis. |
-| Mask overlaps cause unexpected compositing issues | Low | High | Use same compositing strategy as previous workflow. Test each blend independently. |
-| Memory exhaustion (2048x2048 image + multiple passes) | Low | Critical | Monitor VRAM. May need to batch process or reduce precision. |
+| Bottom tiles don't match top tile style despite same seeds | Low | Medium | Use same LoRA strength, CFG, steps. Same seeds as matching top tiles ensure consistency. |
+| Vertical seams interfere with top row blend | Low | Medium | Carefully position vertical masks to start at y=512 (below top blend zone). |
+| Overlapping blends (right vertical + bottom center) cause artifacts | Medium | Medium | Testing with 24px overlap. May need to adjust if problematic. |
+| Workflow too slow (>3.5 minutes) | Low | Low | Acceptable for high-quality result. Can optimize by reducing steps if needed. |
+| Blend prompt produces unexpected results on vertical seams | Low | Medium | Same proven prompt from horizontal blend. Can adjust denoise if needed. |
+| Memory exhaustion (2048x2048 image + multiple passes) | Low | High | Monitor VRAM. RunPod H100 has adequate memory for this workflow. |
 
 ## Coordinate Reference
 
