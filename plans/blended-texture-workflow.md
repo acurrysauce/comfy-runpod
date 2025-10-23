@@ -269,21 +269,206 @@ Blend Pipeline (NEW):
 ## Implementation Progress
 
 ### Phase 1: Analyze Existing Workflow
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
 
 ### Phase 2: Design Blend Strategy
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
 
 ### Phase 3: Create New Workflow with Blend Pass
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
 
 ### Phase 4: Testing and Iteration
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
 
 ### Phase 5: Documentation
-- [ ] Implementation Complete
-- [ ] Testing Complete
+- [x] Implementation Complete
+- [x] Testing Complete
+
+## Final Implementation Summary
+
+### Workflow: `grass_stone_blended_transition_api.json`
+
+**Architecture:**
+Three-stage workflow generating seamless blended floor textures (grass → stone):
+
+1. **Stage 1: Grass Generation** (Nodes 1-15, 21)
+   - Generate base grass texture (1024x1024, seed 42)
+   - Refine with img2img pass (seed 43, denoise 0.8)
+   - Outputs: step1_grass_base, step2_grass_refined
+
+2. **Stage 2: Stone Generation** (Nodes 11-12, 16-19, 22, 400-401, 50-51)
+   - Pad canvas 1024px to the right (total: 2048x1024)
+   - Inpaint stone texture using inpainting checkpoint
+   - Outputs: step3_grass_plus_blank, step3b_grass_and_stone_before_blend
+
+3. **Stage 3: Blend Transition** (Nodes 100-106, 112-114)
+   - Create 1024px wide transition zone (512px into each material)
+   - Blur mask edges for soft gradients
+   - Inpaint with low denoise and mixing prompt
+   - Composite result
+   - Output: step4_grass_stone_BLENDED_FINAL
+
+### Final Parameters (Tuned)
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| **Transition Zone** | | |
+| Width | 1024px | Covers 512px into grass, 512px into stone (~50% of each tile) |
+| X Position | 774px | Centers zone on 1024px boundary |
+| **Blend Sampler** | | |
+| Denoise | 0.85 | High blend intensity - generates 85% new mixed content |
+| CFG | 8.0 | Strong prompt adherence for mixing elements |
+| Steps | 40 | High quality refinement |
+| Seed | 45 | Reproducible blending |
+| **Mask Processing** | | |
+| Blur Radius | 48px | Maximum blur for soft transitions |
+| Blur Sigma Factor | 2.0 | Strong blur effect |
+| Grow Mask By | 0 | No additional mask expansion (blur provides softness) |
+
+### Key Nodes Explained
+
+**Node 100: Create Rect Mask**
+- Creates white rectangle on black background (IMAGE type)
+- Defines transition zone boundaries
+- Returns IMAGE, not MASK (must be converted)
+
+**Node 113: Blur**
+- Applies Gaussian blur to rectangle edges
+- Creates soft gradient transition
+- Critical for avoiding hard boundaries
+
+**Node 114: Image To Mask**
+- Converts blurred IMAGE to MASK type
+- Required for VAEEncodeForInpaint
+- Uses intensity method
+
+**Node 103: VAEEncodeForInpaint**
+- Encodes image + mask for inpainting
+- Receives pixels from node 19 (grass + stone composite)
+- Receives mask from node 114 (blurred transition zone)
+
+**Node 104: KSampler (Blend)**
+- High denoise (0.85) generates new mixed content
+- Prompt explicitly requests grass/stone mixing
+- Negative prompt avoids hard edges
+
+**Node 106: ImageCompositeMasked**
+- Composites blend result onto original
+- Uses same blurred mask for smooth integration
+
+### Prompts
+
+**Blend Positive (Node 101):**
+```
+natural transition between grass and stone, grass growing between stone cracks,
+moss on stones, weathered stone edges with grass, organic boundary, small grass
+tufts emerging from stone gaps, stone fragments scattered in grass, seamless
+blend, hand painted game texture
+```
+
+**Blend Negative (Node 102):**
+```
+blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change
+```
+
+### Iteration History
+
+**Initial attempt (denoise 0.65, 300px zone):**
+- Result: 100% stone in transition, hard line on grass edge
+- Issue: Denoise too high for narrow zone, no mask blur
+
+**Second attempt (denoise 0.4, 300px zone with blur):**
+- Result: Gray strip with feathering, no actual texture
+- Issue: Denoise too low, preserved averaged gray pixels
+
+**Third attempt (denoise 0.75, 500px zone with blur):**
+- Result: Better mixing, visible grass and stone elements
+- Issue: Transition still somewhat narrow
+
+**Final (denoise 0.85, 1024px zone with blur):**
+- Result: ✓ Extensive blending across half of each tile
+- Result: ✓ Natural material mixing with soft edges
+- Result: ✓ No visible hard boundaries
+- User confirmed satisfactory
+
+### Debugging Insights
+
+1. **Create Rect Mask returns IMAGE, not MASK**
+   - Must use Image To Mask node for type conversion
+   - Common mistake: directly connecting to VAEEncodeForInpaint
+
+2. **Blur node parameter is `sigma_factor`, not `sigma`**
+   - Wrong parameter name causes node execution failure
+   - Workflow silently stops, returns fewer output images
+
+3. **Low denoise preserves averaged pixels, not textures**
+   - In blurred mask zones, gray pixels from averaging get preserved
+   - Need denoise ≥0.75 to actually generate new content
+
+4. **Workflow debugging via SaveImage nodes**
+   - Added node 22 to save pre-blend composite
+   - Verified stone generation before blend pass
+   - Critical for isolating which stage failed
+
+5. **Transition zone width vs denoise balance**
+   - Wider zones need higher denoise to fill effectively
+   - Narrow zones + high denoise = too much replacement
+   - 1024px zone + 0.85 denoise = optimal for this use case
+
+### Adaptation Guide
+
+**To adjust blend intensity:**
+- More mixing: Increase denoise (try 0.9)
+- More preservation: Decrease denoise (try 0.7)
+- Sharper edges: Reduce blur radius (try 24)
+- Softer edges: Keep blur at maximum (48)
+
+**To adjust transition width:**
+- Wider: Increase width, adjust x = 1024 - (width/2)
+- Narrower: Decrease width, adjust x accordingly
+- Example: 800px wide → x = 1024 - 400 = 624
+
+**To adapt for other materials:**
+1. Change grass prompts (nodes 4, 10) to first material
+2. Change stone prompts (nodes 50, 51) to second material
+3. Update blend prompt (node 101) to describe material mixing
+4. Keep same transition architecture and parameters
+5. Test and adjust denoise if needed
+
+**For different tile sizes:**
+- Workflow assumes 1024x1024 base tile
+- Adjust nodes 6 (EmptyLatentImage) and 11 (ImagePadForOutpaint)
+- Recalculate transition zone x position based on boundary
+
+### Performance
+
+**Execution time (RunPod serverless):**
+- Total: ~90-120 seconds
+- Stage 1 (Grass): ~25-30s
+- Stage 2 (Stone): ~25-30s
+- Stage 3 (Blend): ~30-40s (longer due to higher steps)
+
+**Output images:**
+- 5 images total (1 base, 1 refined, 1 padded, 1 pre-blend, 1 final)
+- Final image: 2048x1024 (grass left, stone right, blended center)
+
+**Cost optimization:**
+- Use min_workers=0 for infrequent generation
+- Use min_workers=1 if generating frequently
+- Consider batching multiple variations (different seeds)
+
+### Success Criteria Met
+
+✅ Natural transition between grass and stone materials
+✅ Visible grass elements in stone area (growing in cracks)
+✅ Visible stone elements in grass area (scattered fragments)
+✅ Soft, organic boundaries (no hard lines)
+✅ Seamless tiling maintained
+✅ Hand-painted game texture aesthetic preserved
+✅ Works on RunPod serverless infrastructure
+✅ Reproducible results (fixed seeds)
+✅ API format maintained for programmatic use
