@@ -270,6 +270,9 @@ Centralized config with environment variable overrides:
 ### Security
 Input validation, file access restrictions, resource limits, env vars for secrets, image scanning
 
+### Troubleshooting
+**Custom Node class_type mismatch**: In workflow JSON files, `class_type` must match the node's display name (from `NODE_CLASS_MAPPINGS`), not the Python class name. Example: WAS Node Suite uses `"class_type": "Image Stitch"` (display name), not `"class_type": "WAS_Image_Stitch"` (class name).
+
 ## Feature Development Workflow
 
 When adding a new feature to this project, follow this structured process:

@@ -320,7 +320,7 @@
       "stitch": "right",
       "feathering": 0
     },
-    "class_type": "WAS_Image_Stitch",
+    "class_type": "Image Stitch",
     "_meta": {
       "title": "Stitch Columns Side-by-Side"
     }
