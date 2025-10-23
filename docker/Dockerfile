@@ -34,6 +34,7 @@ RUN cd /comfyui && \
       fi \
     done && \
     uv pip install runpod>=1.6.0 boto3>=1.28.0 && \
+    uv pip install numba opencv-python && \
     python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 
 # Activate the venv
