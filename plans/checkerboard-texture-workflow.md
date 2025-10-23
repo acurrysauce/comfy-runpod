@@ -67,7 +67,7 @@ The center 1024x1024 area is the most complex region:
 
 ## Solution Architecture
 
-### Revised Four-Stage Approach (Simplified)
+### Revised Six-Stage Approach (Properly Decomposed)
 
 **Stage 0: Prepare Input** [MANUAL STEP]
 - Run existing grass_stone_blended_transition_api.json workflow
@@ -80,32 +80,53 @@ The center 1024x1024 area is the most complex region:
 - Pad 1024px downward using ImagePadForOutpaint
 - Output: 2048x2048 canvas (top filled, bottom blank)
 
-**Stage 2: Generate Bottom Row with Horizontal Blend**
-- Create mask for entire bottom 2048x1024 region
-- Use inpainting checkpoint
-- **Key insight:** Generate bottom as "stone on left transitioning to grass on right"
-- Use single inpaint pass with horizontal mixing prompt (mirrors top row)
-- Seed: New seed (46) for variation but similar to top blend
-- This creates bottom row with its own horizontal blend (stone→grass)
-- Output: 2048x2048 with top row (grass→stone) and bottom row (stone→grass), but hard horizontal seam at y=1024
+**Stage 2a: Inpaint Bottom-Left (Stone)**
+- Mask: Bottom-left quadrant (x=0-1024, y=1024-2048)
+- Use inpainting checkpoint + LoRA
+- Use stone prompts (same as original workflow)
+- Seed: 44 (same as top-right stone for consistency)
+- Denoise: 1.0 (full generation)
+- Output: Stone tile in bottom-left
 
-**Stage 3: Blend Horizontal Center Seam** [SIMPLIFIED - NO 4-WAY COMPLEXITY]
-- Mask: Horizontal strip at x=0-2048, y=512-1536 (1024px tall, full width)
-- This blends the hard seam between:
-  - Top row (grass→stone horizontal blend)
-  - Bottom row (stone→grass horizontal blend)
-- **Key simplification:** We're only blending TWO things (top blend vs bottom blend), not four separate materials
+**Stage 2b: Inpaint Bottom-Right (Grass)**
+- Mask: Bottom-right quadrant (x=1024-2048, y=1024-2048)
+- Use inpainting checkpoint + LoRA
+- Use grass prompts (same as original workflow)
+- Seed: 42 (same as top-left grass for consistency)
+- Denoise: 1.0 (full generation)
+- Output: Grass tile in bottom-right
+- Result: All four quadrants filled, but three hard seams (center vertical, left vertical, right vertical)
+
+**Stage 3: Blend Bottom Center Vertical Seam** (Stone ↔ Grass)
+- Mask: Vertical strip at bottom center (x=524-1524, y=1024-2048) [1000px wide, centered on x=1024]
+- Blur mask edges horizontally (radius 48)
+- Use grass/stone mixing prompt (same as top center blend)
+- Seed: 46
+- Denoise: 0.85 (high blend intensity)
+- Output: Bottom row now has stone→grass blend (mirrors top grass→stone)
+
+**Stage 4: Blend Left Vertical Seam** (Grass top ↔ Stone bottom)
+- Mask: Vertical strip at left edge (x=0-500, y=512-1536) [500px wide, 1024px tall]
 - Blur mask edges vertically (radius 48)
-- Use generic grass/stone mixing prompt (same as original horizontal blend)
-- Denoise: 0.85 (proven effective)
-- Output: 2048x2048 checkerboard with natural center transition
+- Use grass/stone mixing prompt
+- Seed: 47
+- Denoise: 0.85
+- Output: Left edge blended
 
-**Benefits of Simplified Approach:**
-1. **No 4-way complexity** - Center is just blending two horizontal blends together
-2. **Scalable** - Can repeat process to add more rows (3x3, 4x4, etc.)
-3. **Consistent with proven technique** - Same blending strategy that worked for horizontal
-4. **Fewer variables** - Bottom row generation handles its own horizontal blend
-5. **Faster** - One fewer blend pass than original plan (3 total vs 4)
+**Stage 5: Blend Right Vertical Seam** (Stone top ↔ Grass bottom)
+- Mask: Vertical strip at right edge (x=1548-2048, y=512-1536) [500px wide, 1024px tall]
+- Blur mask edges vertically (radius 48)
+- Use grass/stone mixing prompt
+- Seed: 48
+- Denoise: 0.85
+- Output: Right edge blended, all seams now natural
+
+**Benefits of This Approach:**
+1. **Reuses proven technique** - Each blend is same as original horizontal blend (just rotated/positioned)
+2. **No 4-way complexity** - Each blend is simple 2-material transition
+3. **Modular** - Four separate tiles + three separate blends = clear separation
+4. **Consistent style** - Bottom tiles use same seeds as matching top tiles
+5. **Three independent blends** - Can iterate on each separately if needed
 
 ## Phases
 
@@ -121,51 +142,64 @@ The center 1024x1024 area is the most complex region:
 
 **Deliverable:** Clear coordinate mappings and mask specifications
 
-### Phase 2: Create Base Layout (Stages 1-2) - SIMPLIFIED
-**Goal:** Load input image and generate bottom row with horizontal blend
+### Phase 2: Create Base Layout (Generate Bottom Tiles)
+**Goal:** Generate stone and grass tiles for bottom row
 
 **Tasks:**
 - Add LoadImage node to load `grass_stone_row.png` from input directory
 - Add ImagePadForOutpaint node (pad bottom 1024px)
-- Add VAEEncodeForInpaint for bottom 2048x1024 region
-- Create mask for bottom region (y=1024-2048, x=0-2048)
-- Design bottom row prompt: "stone on left transitioning to grass on right"
-- Add KSampler with seed 46, denoise 1.0 (full generation for bottom)
-- Add VAEDecode to get bottom row result
-- Add ImageCompositeMasked to apply bottom row to padded canvas
-- Add SaveImage for debugging (before center blend)
+- Add Create Rect Mask for bottom-left (x=0, y=1024, w=1024, h=1024)
+- Add VAEEncodeForInpaint for bottom-left stone
+- Add KSampler with stone prompts, seed 44, denoise 1.0
+- Add VAEDecode + ImageCompositeMasked for stone tile
+- Add Create Rect Mask for bottom-right (x=1024, y=1024, w=1024, h=1024)
+- Add VAEEncodeForInpaint for bottom-right grass
+- Add KSampler with grass prompts, seed 42, denoise 1.0
+- Add VAEDecode + ImageCompositeMasked for grass tile
+- Add SaveImage for debugging (all tiles, hard seams visible)
 
-**Deliverable:** Workflow that generates 2048x2048 with:
-- Top: grass→stone blend (from input)
-- Bottom: stone→grass blend (newly generated)
-- Hard horizontal seam at y=1024
+**Deliverable:** 2048x2048 with all four quadrants filled, three hard seams
 
-### Phase 3: Blend Center Horizontal Seam - SIMPLIFIED
-**Goal:** Blend the horizontal seam where two blends meet
+### Phase 3: Blend Bottom Center Vertical Seam
+**Goal:** Blend stone/grass in bottom row (mirrors top row blend)
 
 **Tasks:**
-- Add Create Rect Mask for center horizontal strip (x=0, y=512, w=2048, h=1024)
-- Add Blur node with radius 48, sigma_factor 2.0 (vertical blur)
+- Add Create Rect Mask for bottom center (x=524, y=1024, w=1000, h=1024)
+- Add Blur node with radius 48, sigma_factor 2.0 (horizontal blur)
 - Add Image To Mask converter
-- Add VAEEncodeForInpaint for center seam
-- Reuse existing grass/stone mixing prompt (proven effective)
-- Add KSampler with seed 47, denoise 0.85 (high blend intensity)
-- Add VAEDecode
-- Add ImageCompositeMasked to apply blend
+- Add VAEEncodeForInpaint
+- Add KSampler with grass/stone mixing prompt, seed 46, denoise 0.85
+- Add VAEDecode + ImageCompositeMasked
+- Add SaveImage (bottom row now blended)
+
+**Deliverable:** Bottom row has natural stone→grass transition
+
+### Phase 4: Blend Vertical Seams (Left and Right Edges)
+**Goal:** Blend left (grass/stone) and right (stone/grass) vertical edges
+
+**Tasks:**
+- Add Create Rect Mask for left vertical (x=0, y=512, w=500, h=1024)
+- Add Blur + Image To Mask + VAEEncodeForInpaint
+- Add KSampler with seed 47, denoise 0.85
+- Add VAEDecode + ImageCompositeMasked
+- Add Create Rect Mask for right vertical (x=1548, y=512, w=500, h=1024)
+- Add Blur + Image To Mask + VAEEncodeForInpaint
+- Add KSampler with seed 48, denoise 0.85
+- Add VAEDecode + ImageCompositeMasked
 - Add SaveImage for final result
 
-**Deliverable:** Workflow with natural center transition (no 4-way complexity)
+**Deliverable:** All three seams blended naturally
 
-### Phase 4: Testing and Refinement (Unchanged)
-**Goal:** Ensure quality and optimize parameters
+### Phase 5: Testing and Refinement
+**Goal:** Ensure quality across all seams and optimize parameters
 
 **Tasks:**
 - Test full workflow end-to-end
 - Verify checkerboard pattern recognizable
-- Check center seam quality
-- Verify top and bottom rows have consistent style but natural variation
-- Adjust denoise/blur if needed
+- Check all three blend zones (bottom center, left edge, right edge)
+- Verify no visible hard seams
 - Test seamless tiling (tile 2x2)
+- Adjust denoise/blur if needed
 
 **Deliverable:** Production-ready workflow with validated results
 
@@ -337,24 +371,30 @@ blend, hand painted game texture
 
 ## Testing Strategy
 
-### Phase 2 Testing: Base Layout (Simplified)
+### Phase 2 Testing: Base Layout
 - **Method:** Visual inspection of 2048x2048 output
 - **Success Criteria:**
-  - Top row: grass→stone blend (from input image)
-  - Bottom row: stone→grass blend (newly generated)
-  - Visible hard horizontal seam at y=1024
-  - Bottom row style consistent with top row (similar grass/stone textures)
-  - Bottom row has its own natural horizontal transition
+  - All four quadrants filled
+  - Top-left: Grass (from input)
+  - Top-right: Stone (from input)
+  - Bottom-left: Stone (newly generated, matches top-right style)
+  - Bottom-right: Grass (newly generated, matches top-left style)
+  - Three visible hard seams (bottom center vertical, left vertical, right vertical)
 
-### Phase 3 Testing: Center Seam (Simplified)
-- **Method:** Close inspection of center horizontal strip
+### Phase 3 Testing: Bottom Center Blend
+- **Method:** Inspect bottom center vertical seam
 - **Success Criteria:**
-  - No visible hard line at y=1024
-  - Smooth vertical transition from top blend to bottom blend
-  - Natural texture mixing (not sudden change)
-  - Coherent across full width (2048px)
-  - Stylistically consistent with both top and bottom rows
-  - **No 4-way complexity issues** - much simpler than original plan
+  - Bottom row has smooth stone→grass transition
+  - Mirrors top row's grass→stone transition
+  - No hard vertical line at x=1024 in bottom half
+
+### Phase 4 Testing: Vertical Edge Blends
+- **Method:** Inspect left and right edges
+- **Success Criteria:**
+  - Left edge: Smooth grass (top) ↔ stone (bottom) transition
+  - Right edge: Smooth stone (top) ↔ grass (bottom) transition
+  - No hard horizontal lines at y=1024 on edges
+  - Natural material mixing vertically
 
 ### Phase 5 Testing: Tiling and Overall Quality
 - **Method:** Tile result 2x2 and check all seams
@@ -370,10 +410,13 @@ blend, hand painted game texture
 - **Expected:**
   - Stage 0 (pre-generate top row): ~90s (done manually beforehand)
   - Stage 1 (load + pad): <1s
-  - Stage 2 (bottom row inpaint): ~60-90s (large 2048x1024 region with blend)
-  - Stage 3 (center horizontal blend): ~40-60s (1024px tall strip)
-  - **Total: ~100-150 seconds (~1.5-2.5 minutes)**
-  - **Much faster than original plan** (no vertical seams, no 4-way blend)
+  - Stage 2a (bottom-left stone): ~30s
+  - Stage 2b (bottom-right grass): ~30s
+  - Stage 3 (bottom center blend): ~40s
+  - Stage 4 (left vertical blend): ~40s
+  - Stage 5 (right vertical blend): ~40s
+  - **Total: ~180-210 seconds (~3-3.5 minutes)**
+  - Comparable to original horizontal blend workflow
 
 ## Risk Assessment
 
@@ -421,18 +464,22 @@ blend, hand painted game texture
 - [ ] Implementation Complete
 - [ ] Testing Complete
 
-### Phase 2: Create Base Layout (Load Input + Generate Bottom Row)
+### Phase 2: Create Base Layout (Generate Bottom Tiles)
 - [ ] Implementation Complete
 - [ ] Testing Complete
 
-### Phase 3: Blend Center Horizontal Seam
+### Phase 3: Blend Bottom Center Vertical Seam
 - [ ] Implementation Complete
 - [ ] Testing Complete
 
-### Phase 4: Testing and Refinement
+### Phase 4: Blend Vertical Edge Seams
 - [ ] Implementation Complete
 - [ ] Testing Complete
 
-### Phase 5: Documentation
+### Phase 5: Testing and Refinement
+- [ ] Implementation Complete
+- [ ] Testing Complete
+
+### Phase 6: Documentation
 - [ ] Implementation Complete
 - [ ] Testing Complete
