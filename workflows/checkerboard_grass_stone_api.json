@@ -9,23 +9,6 @@
       "title": "Load Top Row (Grass→Stone)"
     }
   },
-  "201": {
-    "inputs": {
-      "left": 0,
-      "top": 0,
-      "right": 0,
-      "bottom": 1024,
-      "feathering": 0,
-      "image": [
-        "200",
-        0
-      ]
-    },
-    "class_type": "ImagePadForOutpaint",
-    "_meta": {
-      "title": "Pad Bottom 1024px"
-    }
-  },
   "220": {
     "inputs": {
       "width": 1024,
@@ -312,6 +295,23 @@
   },
   "250": {
     "inputs": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 1024,
+      "feathering": 0,
+      "image": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Top Row Down 1024px"
+    }
+  },
+  "251": {
+    "inputs": {
       "mode": "pixels",
       "origin": "topleft",
       "x": 0,
@@ -323,29 +323,29 @@
     },
     "class_type": "Create Rect Mask",
     "_meta": {
-      "title": "Mask for Bottom Row"
+      "title": "Mask for Bottom Row Position"
     }
   },
-  "251": {
+  "252": {
     "inputs": {
       "method": "intensity",
       "image": [
-        "250",
+        "251",
         0
       ]
     },
     "class_type": "Image To Mask",
     "_meta": {
-      "title": "Convert to Mask - Bottom Row"
+      "title": "Convert to Mask - Bottom Position"
     }
   },
-  "252": {
+  "254": {
     "inputs": {
       "x": 0,
       "y": 0,
       "resize_source": false,
       "destination": [
-        "201",
+        "250",
         0
       ],
       "source": [
@@ -353,20 +353,20 @@
         0
       ],
       "mask": [
-        "251",
+        "252",
         0
       ]
     },
     "class_type": "ImageCompositeMasked",
     "_meta": {
-      "title": "Composite Bottom Row onto Canvas"
+      "title": "Composite Bottom Row Below Top"
     }
   },
   "253": {
     "inputs": {
       "filename_prefix": "phase2_all_tiles_hard_seams",
       "images": [
-        "252",
+        "254",
         0
       ]
     },
