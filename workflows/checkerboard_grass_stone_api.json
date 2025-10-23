@@ -309,81 +309,19 @@
   },
   "240": {
     "inputs": {
-      "width": 2048,
-      "height": 2048,
-      "batch_size": 1
-    },
-    "class_type": "EmptyLatentImage",
-    "_meta": {
-      "title": "Empty Latent for Final Canvas"
-    }
-  },
-  "245": {
-    "inputs": {
-      "samples": [
-        "240",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Decode Empty Canvas (2048x2048)"
-    }
-  },
-  "246": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 0,
-      "y": 0,
-      "width": 1024,
-      "height": 2048,
-      "image_width": 2048,
-      "image_height": 2048
-    },
-    "class_type": "Create Rect Mask",
-    "_meta": {
-      "title": "Mask for Left Column Position"
-    }
-  },
-  "247": {
-    "inputs": {
-      "method": "intensity",
+      "left": 0,
+      "top": 0,
+      "right": 1024,
+      "bottom": 0,
+      "feathering": 0,
       "image": [
-        "246",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Convert to Mask - Left Position"
-    }
-  },
-  "248": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "245",
-        0
-      ],
-      "source": [
         "224",
         0
-      ],
-      "mask": [
-        "247",
-        0
       ]
     },
-    "class_type": "ImageCompositeMasked",
+    "class_type": "ImagePadForOutpaint",
     "_meta": {
-      "title": "Composite Left Column onto Canvas"
+      "title": "Pad Left Column Right 1024px"
     }
   },
   "241": {
@@ -421,7 +359,7 @@
       "y": 0,
       "resize_source": false,
       "destination": [
-        "248",
+        "240",
         0
       ],
       "source": [
@@ -435,7 +373,7 @@
     },
     "class_type": "ImageCompositeMasked",
     "_meta": {
-      "title": "Composite Right Column onto Canvas"
+      "title": "Composite Right Column onto Padded Canvas"
     }
   },
   "244": {
