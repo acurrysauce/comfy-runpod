@@ -107,22 +107,22 @@
   },
   "222": {
     "inputs": {
-      "seed": 42,
+      "seed": 44,
       "steps": 25,
       "cfg": 7.5,
       "sampler_name": "euler",
       "scheduler": "normal",
       "denoise": 1,
       "model": [
-        "3",
+        "401",
         0
       ],
       "positive": [
-        "10",
+        "50",
         0
       ],
       "negative": [
-        "5",
+        "51",
         0
       ],
       "latent_image": [
@@ -132,7 +132,7 @@
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Outpaint Left Column (Grass)"
+      "title": "Outpaint Left Column (Grass→Stone)"
     }
   },
   "223": {
@@ -227,22 +227,22 @@
   },
   "232": {
     "inputs": {
-      "seed": 44,
+      "seed": 42,
       "steps": 25,
       "cfg": 7.5,
       "sampler_name": "euler",
       "scheduler": "normal",
       "denoise": 1,
       "model": [
-        "401",
+        "3",
         0
       ],
       "positive": [
-        "50",
+        "10",
         0
       ],
       "negative": [
-        "51",
+        "5",
         0
       ],
       "latent_image": [
@@ -252,7 +252,7 @@
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Outpaint Right Column (Stone)"
+      "title": "Outpaint Right Column (Stone→Grass)"
     }
   },
   "233": {
@@ -309,19 +309,81 @@
   },
   "240": {
     "inputs": {
-      "left": 0,
-      "top": 0,
-      "right": 1024,
-      "bottom": 0,
-      "feathering": 0,
-      "image": [
-        "224",
+      "width": 2048,
+      "height": 2048,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent for Final Canvas"
+    }
+  },
+  "245": {
+    "inputs": {
+      "samples": [
+        "240",
+        0
+      ],
+      "vae": [
+        "2",
         0
       ]
     },
-    "class_type": "ImagePadForOutpaint",
+    "class_type": "VAEDecode",
     "_meta": {
-      "title": "Pad Left Column Right 1024px"
+      "title": "Decode Empty Canvas (2048x2048)"
+    }
+  },
+  "246": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 2048,
+      "image_width": 2048,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Mask for Left Column Position"
+    }
+  },
+  "247": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "246",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Convert to Mask - Left Position"
+    }
+  },
+  "248": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "245",
+        0
+      ],
+      "source": [
+        "224",
+        0
+      ],
+      "mask": [
+        "247",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Left Column onto Canvas"
     }
   },
   "241": {
@@ -359,7 +421,7 @@
       "y": 0,
       "resize_source": false,
       "destination": [
-        "240",
+        "248",
         0
       ],
       "source": [
