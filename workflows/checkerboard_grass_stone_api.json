@@ -26,70 +26,18 @@
       "title": "Pad Bottom 1024px"
     }
   },
-  "217": {
+  "220": {
     "inputs": {
-      "filename_prefix": "debug_step0_after_padding",
-      "images": [
-        "201",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Debug - After Padding"
-    }
-  },
-  "202": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 0,
-      "y": 1024,
       "width": 1024,
       "height": 1024,
-      "image_width": 2048,
-      "image_height": 2048
+      "batch_size": 1
     },
-    "class_type": "Create Rect Mask",
+    "class_type": "EmptyLatentImage",
     "_meta": {
-      "title": "Mask Bottom-Left (Stone)"
+      "title": "Empty Latent for Bottom-Left Stone"
     }
   },
-  "203": {
-    "inputs": {
-      "method": "intensity",
-      "image": [
-        "202",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Convert to Mask - Bottom-Left"
-    }
-  },
-  "204": {
-    "inputs": {
-      "grow_mask_by": 0,
-      "pixels": [
-        "201",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "203",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Encode for Bottom-Left Stone"
-    }
-  },
-  "205": {
+  "221": {
     "inputs": {
       "seed": 44,
       "steps": 25,
@@ -110,19 +58,19 @@
         0
       ],
       "latent_image": [
-        "204",
+        "220",
         0
       ]
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Generate Bottom-Left Stone"
+      "title": "Generate Bottom-Left Stone Tile"
     }
   },
-  "206": {
+  "222": {
     "inputs": {
       "samples": [
-        "205",
+        "221",
         0
       ],
       "vae": [
@@ -132,96 +80,113 @@
     },
     "class_type": "VAEDecode",
     "_meta": {
-      "title": "Decode Bottom-Left Stone"
+      "title": "Decode Stone Tile"
     }
   },
-  "207": {
+  "223": {
     "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "201",
-        0
-      ],
-      "source": [
-        "206",
-        0
-      ],
-      "mask": [
-        "203",
-        0
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Composite Bottom-Left Stone"
-    }
-  },
-  "215": {
-    "inputs": {
-      "filename_prefix": "debug_step1_after_bottom_left_stone",
+      "filename_prefix": "debug_stone_tile_isolated",
       "images": [
-        "207",
+        "222",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "Debug - After Bottom-Left Stone"
+      "title": "Debug - Stone Tile (Isolated)"
     }
   },
-  "208": {
+  "224": {
     "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 1024,
-      "y": 1024,
-      "width": 1024,
+      "width": 2048,
       "height": 1024,
-      "image_width": 2048,
-      "image_height": 2048
+      "batch_size": 1
     },
-    "class_type": "Create Rect Mask",
+    "class_type": "EmptyLatentImage",
     "_meta": {
-      "title": "Mask Bottom-Right (Grass)"
+      "title": "Empty Latent for Bottom Row Canvas"
     }
   },
-  "209": {
+  "225": {
     "inputs": {
-      "method": "intensity",
-      "image": [
-        "208",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Convert to Mask - Bottom-Right"
-    }
-  },
-  "210": {
-    "inputs": {
-      "grow_mask_by": 0,
-      "pixels": [
-        "207",
+      "samples": [
+        "224",
         0
       ],
       "vae": [
         "2",
         0
-      ],
-      "mask": [
-        "209",
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Empty Canvas (2048x1024)"
+    }
+  },
+  "226": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 0,
+      "y": 0,
+      "width": 1024,
+      "height": 1024,
+      "image_width": 2048,
+      "image_height": 1024
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Mask for Left Side (Stone)"
+    }
+  },
+  "227": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "226",
         0
       ]
     },
-    "class_type": "VAEEncodeForInpaint",
+    "class_type": "Image To Mask",
     "_meta": {
-      "title": "Encode for Bottom-Right Grass"
+      "title": "Convert to Mask - Left Side"
     }
   },
-  "211": {
+  "228": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "225",
+        0
+      ],
+      "source": [
+        "222",
+        0
+      ],
+      "mask": [
+        "227",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Stone Tile onto Left"
+    }
+  },
+  "230": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent for Bottom-Right Grass"
+    }
+  },
+  "231": {
     "inputs": {
       "seed": 42,
       "steps": 25,
@@ -242,19 +207,19 @@
         0
       ],
       "latent_image": [
-        "210",
+        "230",
         0
       ]
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Generate Bottom-Right Grass"
+      "title": "Generate Bottom-Right Grass Tile"
     }
   },
-  "212": {
+  "232": {
     "inputs": {
       "samples": [
-        "211",
+        "231",
         0
       ],
       "vae": [
@@ -264,50 +229,144 @@
     },
     "class_type": "VAEDecode",
     "_meta": {
-      "title": "Decode Bottom-Right Grass"
+      "title": "Decode Grass Tile"
     }
   },
-  "213": {
+  "233": {
     "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "207",
-        0
-      ],
-      "source": [
-        "212",
-        0
-      ],
-      "mask": [
-        "209",
-        0
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Composite Bottom-Right Grass"
-    }
-  },
-  "216": {
-    "inputs": {
-      "filename_prefix": "debug_step2_after_bottom_right_grass",
+      "filename_prefix": "debug_grass_tile_isolated",
       "images": [
-        "213",
+        "232",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "Debug - After Bottom-Right Grass"
+      "title": "Debug - Grass Tile (Isolated)"
     }
   },
-  "214": {
+  "240": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 1024,
+      "y": 0,
+      "width": 1024,
+      "height": 1024,
+      "image_width": 2048,
+      "image_height": 1024
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Mask for Right Side (Grass)"
+    }
+  },
+  "241": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "240",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Convert to Mask - Right Side"
+    }
+  },
+  "242": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "228",
+        0
+      ],
+      "source": [
+        "232",
+        0
+      ],
+      "mask": [
+        "241",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Grass Tile onto Right"
+    }
+  },
+  "243": {
+    "inputs": {
+      "filename_prefix": "debug_bottom_row_assembled",
+      "images": [
+        "242",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Bottom Row Assembled"
+    }
+  },
+  "250": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 0,
+      "y": 1024,
+      "width": 2048,
+      "height": 1024,
+      "image_width": 2048,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Mask for Bottom Row"
+    }
+  },
+  "251": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "250",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Convert to Mask - Bottom Row"
+    }
+  },
+  "252": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "201",
+        0
+      ],
+      "source": [
+        "242",
+        0
+      ],
+      "mask": [
+        "251",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Bottom Row onto Canvas"
+    }
+  },
+  "253": {
     "inputs": {
       "filename_prefix": "phase2_all_tiles_hard_seams",
       "images": [
-        "213",
+        "252",
         0
       ]
     },
