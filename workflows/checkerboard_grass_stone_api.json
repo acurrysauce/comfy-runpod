@@ -309,78 +309,27 @@
   },
   "240": {
     "inputs": {
-      "left": 0,
-      "top": 0,
-      "right": 1024,
-      "bottom": 0,
-      "feathering": 0,
-      "image": [
+      "image_a": [
         "224",
         0
-      ]
-    },
-    "class_type": "ImagePadForOutpaint",
-    "_meta": {
-      "title": "Pad Left Column Right 1024px"
-    }
-  },
-  "241": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 1024,
-      "y": 0,
-      "width": 1024,
-      "height": 2048,
-      "image_width": 2048,
-      "image_height": 2048
-    },
-    "class_type": "Create Rect Mask",
-    "_meta": {
-      "title": "Mask for Right Column Position"
-    }
-  },
-  "242": {
-    "inputs": {
-      "method": "intensity",
-      "image": [
-        "241",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Convert to Mask - Right Position"
-    }
-  },
-  "243": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "240",
-        0
       ],
-      "source": [
+      "image_b": [
         "234",
         0
       ],
-      "mask": [
-        "242",
-        0
-      ]
+      "stitch": "right",
+      "feathering": 0
     },
-    "class_type": "ImageCompositeMasked",
+    "class_type": "WAS_Image_Stitch",
     "_meta": {
-      "title": "Composite Right Column onto Padded Canvas"
+      "title": "Stitch Columns Side-by-Side"
     }
   },
   "244": {
     "inputs": {
       "filename_prefix": "phase2_all_tiles_hard_seams",
       "images": [
-        "243",
+        "240",
         0
       ]
     },
