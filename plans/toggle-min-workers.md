@@ -206,7 +206,7 @@ These are already used by `scripts/send-to-runpod.py`, so they should exist.
 - [x] Testing Complete
 
 ### Phase 3: Frontend UI - Status Display and Toggle Button
-- [ ] Implementation Complete
+- [x] Implementation Complete
 - [ ] Testing Complete
 
 ### Phase 4: Error Handling and Edge Cases

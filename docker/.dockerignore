@@ -2,8 +2,8 @@
 ComfyUI/.git/
 ComfyUI/custom_nodes/*/.git/
 
-# NOTE: We DO include .venv for "fat image" strategy
-# The local venv is copied to avoid reinstalling during build
+# Exclude .venv - we create fresh in container for CUDA compatibility
+ComfyUI/.venv/
 
 # Exclude ComfyUI runtime directories (created during execution)
 ComfyUI/input/

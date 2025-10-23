@@ -78,6 +78,100 @@ app.registerExtension({
 
                         const result = await response.json();
 
+                        if (!response.ok || result.status === 'error') {
+                            // Show detailed error message
+                            const errorMsg = result.message || 'Unknown error';
+                            const errorDetails = result.details || result.traceback || '';
+
+                            // Create error overlay
+                            const errorOverlay = document.createElement('div');
+                            errorOverlay.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0, 0, 0, 0.95);
+                                z-index: 10000;
+                                overflow: auto;
+                                padding: 20px;
+                                box-sizing: border-box;
+                            `;
+
+                            errorOverlay.innerHTML = `
+                                <div style="max-width: 1200px; margin: 0 auto;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                        <h1 style="color: #f44336; margin: 0;">✗ Workflow Error</h1>
+                                        <button id="runpod-close-error" style="
+                                            background: #f44336;
+                                            color: white;
+                                            border: none;
+                                            padding: 10px 20px;
+                                            border-radius: 4px;
+                                            cursor: pointer;
+                                            font-size: 16px;
+                                            font-weight: 500;
+                                        ">Close</button>
+                                    </div>
+                                    <div style="
+                                        background: #2a2a2a;
+                                        padding: 20px;
+                                        border-radius: 8px;
+                                        margin-bottom: 20px;
+                                    ">
+                                        <h2 style="color: #fff; margin-top: 0;">Error Message:</h2>
+                                        <pre style="
+                                            color: #f44336;
+                                            white-space: pre-wrap;
+                                            word-wrap: break-word;
+                                            font-family: monospace;
+                                            font-size: 14px;
+                                        ">${errorMsg}</pre>
+                                    </div>
+                                    ${errorDetails ? `
+                                        <div style="
+                                            background: #2a2a2a;
+                                            padding: 20px;
+                                            border-radius: 8px;
+                                        ">
+                                            <h2 style="color: #fff; margin-top: 0;">Details:</h2>
+                                            <pre style="
+                                                color: #888;
+                                                white-space: pre-wrap;
+                                                word-wrap: break-word;
+                                                font-family: monospace;
+                                                font-size: 12px;
+                                                max-height: 400px;
+                                                overflow-y: auto;
+                                            ">${errorDetails}</pre>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+
+                            document.body.appendChild(errorOverlay);
+
+                            // Close button handler
+                            document.getElementById('runpod-close-error').onclick = () => {
+                                document.body.removeChild(errorOverlay);
+                            };
+
+                            // Close on escape key
+                            const escapeHandler = (e) => {
+                                if (e.key === 'Escape' && document.body.contains(errorOverlay)) {
+                                    document.body.removeChild(errorOverlay);
+                                    document.removeEventListener('keydown', escapeHandler);
+                                }
+                            };
+                            document.addEventListener('keydown', escapeHandler);
+
+                            // Re-enable button
+                            runpodBtn.disabled = false;
+                            runpodBtn.textContent = "Queue on RunPod";
+                            runpodBtn.style.backgroundColor = "#4CAF50";
+                            return;
+                        }
+
                         if (result.status === 'submitted') {
                             runpodBtn.textContent = "Processing...";
 
@@ -220,7 +314,95 @@ app.registerExtension({
                 // Append button to container
                 container.appendChild(runpodBtn);
 
-                console.log("RunPod Queue button added to interface");
+                // Create worker status toggle button
+                const workerBtn = document.createElement("button");
+                workerBtn.id = "runpod-worker-toggle";
+                workerBtn.textContent = "Min Workers: Loading...";
+                workerBtn.style.marginLeft = "5px";
+                workerBtn.style.backgroundColor = "#2196F3";
+                workerBtn.style.color = "white";
+                workerBtn.style.padding = "8px 16px";
+                workerBtn.style.border = "none";
+                workerBtn.style.borderRadius = "4px";
+                workerBtn.style.cursor = "pointer";
+                workerBtn.style.fontWeight = "500";
+
+                // Function to update worker status display
+                const updateWorkerStatus = async () => {
+                    try {
+                        const response = await fetch('/runpod/worker_status');
+                        const data = await response.json();
+
+                        if (data.status === 'success') {
+                            const workersMin = data.workers_min;
+                            if (workersMin === 0) {
+                                workerBtn.textContent = "Min Workers: 0 💤";
+                                workerBtn.style.backgroundColor = "#757575"; // Gray for cost-saving
+                                workerBtn.title = "Cost-saving mode (slow cold starts)\nClick to enable always-on worker";
+                            } else {
+                                workerBtn.textContent = "Min Workers: 1 ⚡";
+                                workerBtn.style.backgroundColor = "#4CAF50"; // Green for always-ready
+                                workerBtn.title = "Always-ready mode (instant response)\nClick to disable for cost savings";
+                            }
+                        } else {
+                            workerBtn.textContent = "Min Workers: Error";
+                            workerBtn.style.backgroundColor = "#f44336";
+                            workerBtn.title = data.message || "Failed to get worker status";
+                        }
+                    } catch (error) {
+                        console.error('Error getting worker status:', error);
+                        workerBtn.textContent = "Min Workers: Error";
+                        workerBtn.style.backgroundColor = "#f44336";
+                        workerBtn.title = "Failed to get worker status: " + error.message;
+                    }
+                };
+
+                // Toggle worker on click
+                workerBtn.onclick = async () => {
+                    try {
+                        // Disable button while processing
+                        workerBtn.disabled = true;
+                        const originalText = workerBtn.textContent;
+                        workerBtn.textContent = "Toggling...";
+                        workerBtn.style.backgroundColor = "#888";
+
+                        // Call toggle endpoint
+                        const response = await fetch('/runpod/toggle_workers', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        });
+
+                        const result = await response.json();
+
+                        if (result.status === 'success') {
+                            console.log('RunPod: Worker toggle successful:', result.message);
+                            // Update display with new status
+                            await updateWorkerStatus();
+                        } else {
+                            alert('✗ Error toggling workers: ' + result.message);
+                            workerBtn.textContent = originalText;
+                        }
+
+                        // Re-enable button
+                        workerBtn.disabled = false;
+
+                    } catch (error) {
+                        console.error('RunPod worker toggle error:', error);
+                        alert('✗ Failed to toggle workers: ' + error.message);
+                        workerBtn.disabled = false;
+                        await updateWorkerStatus(); // Try to restore correct state
+                    }
+                };
+
+                // Append worker button to container
+                container.appendChild(workerBtn);
+
+                // Load initial worker status
+                updateWorkerStatus();
+
+                console.log("RunPod Queue button and Worker Toggle added to interface");
                 return true;
             };
 

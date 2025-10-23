@@ -1,45 +1,44 @@
 # syntax=docker/dockerfile:1.4
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install system dependencies
-# Note: Using Ubuntu 22.04 package names (base image is 22.04)
+# Install minimal system dependencies (using Python 3.10 from Ubuntu 22.04)
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
+    python3.10 \
+    python3.10-dev \
     curl \
     git \
     wget \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    pkg-config \
-    libcairo2-dev \
-    python3-cairo \
-    cmake \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv for fast package management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Copy ComfyUI source code with all custom nodes AND venv already installed
-# This is a "fat" image strategy - everything is pre-installed locally
+# Copy ComfyUI source code (without .venv - we'll create fresh)
 COPY ComfyUI /comfyui
 
-# Copy our custom nodes (tracked in git)
-COPY ../custom_nodes/runpod-queue /comfyui/custom_nodes/runpod-queue
+# Create fresh venv and install all dependencies in one layer
+RUN cd /comfyui && \
+    uv venv .venv && \
+    . .venv/bin/activate && \
+    uv pip install -r requirements.txt && \
+    for req in custom_nodes/*/requirements.txt; do \
+      if [ -f "$req" ]; then \
+        echo "Installing requirements from $req" && \
+        uv pip install -r "$req"; \
+      fi \
+    done && \
+    uv pip install runpod>=1.6.0 boto3>=1.28.0 && \
+    python -c "import torch; print(f'PyTorch version: {torch.__version__}'); print(f'CUDA available: {torch.cuda.is_available()}')"
 
-# Activate the copied venv for subsequent RUN commands
+# Activate the venv
 ENV VIRTUAL_ENV=/comfyui/.venv
 ENV PATH="/comfyui/.venv/bin:$PATH"
-
-# Install only serverless-specific packages (everything else already in venv)
-RUN uv pip install \
-    runpod>=1.6.0 \
-    boto3>=1.28.0
 
 # Copy handler, utilities, and configuration
 COPY handler.py /handler.py
