@@ -1,18 +1,23 @@
 {
   "1": {
-    "class_type": "CheckpointLoaderSimple",
     "inputs": {
       "ckpt_name": "sd_xl_base_1.0.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
     }
   },
   "2": {
-    "class_type": "VAELoader",
     "inputs": {
       "vae_name": "sdxl_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
     }
   },
   "3": {
-    "class_type": "LoraLoader",
     "inputs": {
       "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
       "strength_model": 0.6,
@@ -25,45 +30,57 @@
         "1",
         1
       ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA"
     }
   },
   "4": {
-    "class_type": "CLIPTextEncode",
     "inputs": {
       "text": "simple green color patches, abstract grass texture, flat painted splotches, no detail, minimal stylized ground, mottled green surface, painterly color blobs, multiple shades of green, light green and dark green patches, game texture map, top-down flat view, seamless",
       "clip": [
         "3",
         1
       ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
     }
   },
   "5": {
-    "class_type": "CLIPTextEncode",
     "inputs": {
       "text": "blurry, low quality, photorealistic, 3d render, realistic grass blades, detailed grass strands, individual blades, modern brick wall",
       "clip": [
         "3",
         1
       ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
     }
   },
   "6": {
-    "class_type": "EmptyLatentImage",
     "inputs": {
       "width": 1024,
       "height": 1024,
       "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
     }
   },
   "7": {
-    "class_type": "KSampler",
     "inputs": {
       "seed": 42,
-      "steps": "fixed",
-      "cfg": 25,
-      "sampler_name": 7.5,
-      "scheduler": "euler",
-      "denoise": "normal",
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
       "model": [
         "3",
         0
@@ -80,10 +97,13 @@
         "6",
         0
       ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
     }
   },
   "8": {
-    "class_type": "VAEDecode",
     "inputs": {
       "samples": [
         "7",
@@ -93,30 +113,39 @@
         "2",
         0
       ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
     }
   },
   "9": {
-    "class_type": "SaveImage",
     "inputs": {
       "filename_prefix": "step1_grass_base",
       "images": [
         "8",
         0
       ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
     }
   },
   "10": {
-    "class_type": "CLIPTextEncode",
     "inputs": {
       "text": "hand painted grass texture, stylized grass patch, painted grass clumps, green grass tufts, varied grass colors, light and dark green grass, painterly grass texture, game texture, top-down flat view, seamless, textured grass surface",
       "clip": [
         "3",
         1
       ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
     }
   },
   "11": {
-    "class_type": "ImagePadForOutpaint",
     "inputs": {
       "left": 0,
       "top": 0,
@@ -127,20 +156,26 @@
         "15",
         0
       ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Image for Outpainting"
     }
   },
   "12": {
-    "class_type": "SaveImage",
     "inputs": {
       "filename_prefix": "step3_grass_plus_blank",
       "images": [
         "11",
         0
       ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
     }
   },
   "13": {
-    "class_type": "VAEEncode",
     "inputs": {
       "pixels": [
         "8",
@@ -150,170 +185,20 @@
         "2",
         0
       ]
-    }
-  },
-  "15": {
-    "class_type": "VAEDecode",
-    "inputs": {
-      "samples": [
-        "14",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    }
-  },
-  "16": {
-    "class_type": "VAEEncodeForInpaint",
-    "inputs": {
-      "grow_mask_by": 12,
-      "pixels": [
-        "11",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "11",
-        1
-      ]
-    }
-  },
-  "17": {
-    "class_type": "KSampler",
-    "inputs": {
-      "seed": 44,
-      "steps": "fixed",
-      "cfg": 25,
-      "sampler_name": 7.5,
-      "scheduler": "euler",
-      "denoise": "normal",
-      "model": [
-        "401",
-        0
-      ],
-      "positive": [
-        "50",
-        0
-      ],
-      "negative": [
-        "51",
-        0
-      ],
-      "latent_image": [
-        "16",
-        0
-      ]
-    }
-  },
-  "18": {
-    "class_type": "VAEDecode",
-    "inputs": {
-      "samples": [
-        "17",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    }
-  },
-  "19": {
-    "class_type": "ImageCompositeMasked",
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "11",
-        0
-      ],
-      "source": [
-        "18",
-        0
-      ],
-      "mask": [
-        "11",
-        1
-      ]
-    }
-  },
-  "20": {
-    "class_type": "SaveImage",
-    "inputs": {
-      "filename_prefix": "step4_grass_and_stone_FINAL",
-      "images": [
-        "19",
-        0
-      ]
-    }
-  },
-  "21": {
-    "class_type": "SaveImage",
-    "inputs": {
-      "filename_prefix": "step2_grass_refined",
-      "images": [
-        "15",
-        0
-      ]
-    }
-  },
-  "50": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "text": "hand painted stone floor texture, light grey medieval stone blocks, pale grey cobblestone pavement, square cut stone tiles, clean light stone, castle courtyard floor, fantasy game texture, top-down flat view, light grey and pale beige stones, simple painted blocks, artisan stonework, seamless",
-      "clip": [
-        "401",
-        1
-      ]
-    }
-  },
-  "51": {
-    "class_type": "CLIPTextEncode",
-    "inputs": {
-      "text": "blurry, low quality, photorealistic, modern brick wall, grout lines, uniform tiles, polished surface, shiny, pristine, grass, plants, dirt, mud, green, dark grey, dark brown, black rocks",
-      "clip": [
-        "401",
-        1
-      ]
-    }
-  },
-  "400": {
-    "class_type": "CheckpointLoaderSimple",
-    "inputs": {
-      "ckpt_name": "sd_xl_base_1.0_inpainting_0.1.safetensors"
-    }
-  },
-  "401": {
-    "class_type": "LoraLoader",
-    "inputs": {
-      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
-      "strength_model": 0.6,
-      "strength_clip": 0.6,
-      "model": [
-        "400",
-        0
-      ],
-      "clip": [
-        "400",
-        1
-      ]
+    },
+    "class_type": "VAEEncode",
+    "_meta": {
+      "title": "VAE Encode"
     }
   },
   "14": {
-    "class_type": "KSampler",
     "inputs": {
       "seed": 43,
-      "steps": "fixed",
-      "cfg": 20,
-      "sampler_name": 7.5,
-      "scheduler": "euler",
-      "denoise": "normal",
+      "steps": 20,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.8,
       "model": [
         "3",
         0
@@ -330,6 +215,196 @@
         "13",
         0
       ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "15": {
+    "inputs": {
+      "samples": [
+        "14",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "16": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "11",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "VAE Encode (for Inpainting)"
+    }
+  },
+  "17": {
+    "inputs": {
+      "seed": 44,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "50",
+        0
+      ],
+      "negative": [
+        "51",
+        0
+      ],
+      "latent_image": [
+        "16",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "18": {
+    "inputs": {
+      "samples": [
+        "17",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "19": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "11",
+        0
+      ],
+      "source": [
+        "18",
+        0
+      ],
+      "mask": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "ImageCompositeMasked"
+    }
+  },
+  "20": {
+    "inputs": {
+      "filename_prefix": "step4_grass_and_stone_FINAL",
+      "images": [
+        "19",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "21": {
+    "inputs": {
+      "filename_prefix": "step2_grass_refined",
+      "images": [
+        "15",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "50": {
+    "inputs": {
+      "text": "hand painted stone floor texture, light grey medieval stone blocks, pale grey cobblestone pavement, square cut stone tiles, clean light stone, castle courtyard floor, fantasy game texture, top-down flat view, light grey and pale beige stones, simple painted blocks, artisan stonework, seamless",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "51": {
+    "inputs": {
+      "text": "blurry, low quality, photorealistic, modern brick wall, grout lines, uniform tiles, polished surface, shiny, pristine, grass, plants, dirt, mud, green, dark grey, dark brown, black rocks",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP Text Encode (Prompt)"
+    }
+  },
+  "400": {
+    "inputs": {
+      "ckpt_name": "sd_xl_base_1.0_inpainting_0.1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load Checkpoint"
+    }
+  },
+  "401": {
+    "inputs": {
+      "lora_name": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "strength_model": 0.6,
+      "strength_clip": 0.6,
+      "model": [
+        "400",
+        0
+      ],
+      "clip": [
+        "400",
+        1
+      ]
+    },
+    "class_type": "LoraLoader",
+    "_meta": {
+      "title": "Load LoRA"
     }
   }
 }
