@@ -87,6 +87,36 @@ def get_image_depths(workflow):
 current_image_depths = {}
 
 
+def find_input_images(workflow):
+    """Find all input images referenced in LoadImage nodes.
+
+    Returns:
+        list: Paths to input images found in the workflow
+    """
+    input_images = []
+    input_dir = PROJECT_ROOT / "input"
+
+    for node_id, node_data in workflow.items():
+        if node_data.get('class_type') == 'LoadImage':
+            # Get the image filename from the node inputs
+            image_filename = node_data.get('inputs', {}).get('image')
+
+            if image_filename:
+                # Check if image exists in input directory (including subdirectories)
+                # Try direct path first
+                image_path = input_dir / image_filename
+                if image_path.exists():
+                    input_images.append(str(image_path))
+                else:
+                    # Search subdirectories
+                    for img_path in input_dir.rglob(image_filename):
+                        if img_path.is_file():
+                            input_images.append(str(img_path))
+                            break
+
+    return input_images
+
+
 @server.PromptServer.instance.routes.post('/runpod/queue')
 async def queue_on_runpod(request):
     """Handle workflow submission to RunPod.
@@ -107,9 +137,17 @@ async def queue_on_runpod(request):
         with open(temp_workflow, 'w') as f:
             json.dump(workflow, f, indent=2)
 
+        # Find all input images referenced in LoadImage nodes
+        input_images = find_input_images(workflow)
+
         # Call send-to-runpod script
         script_path = PROJECT_ROOT / "scripts" / "send-to-runpod.py"
         log_file = PROJECT_ROOT / "send-to-runpod.log"
+
+        # Build command with input images if any found
+        cmd = ['python3', str(script_path), '--workflow', str(temp_workflow), '--no-open']
+        if input_images:
+            cmd.extend(['--images'] + input_images)
 
         # Run in background so we don't block the UI
         # Log output to file so we can debug issues
@@ -117,15 +155,21 @@ async def queue_on_runpod(request):
         # Use --no-open since we'll display images in the browser
         with open(log_file, 'a') as log:
             subprocess.Popen(
-                ['python3', str(script_path), '--workflow', str(temp_workflow), '--no-open'],
+                cmd,
                 stdout=log,
                 stderr=log,
                 cwd=str(PROJECT_ROOT)
             )
 
+        message = "Workflow submitted to RunPod!"
+        if input_images:
+            message += f" (with {len(input_images)} input image(s))"
+        message += " Check terminal for progress."
+
         return web.json_response({
             "status": "submitted",
-            "message": "Workflow submitted to RunPod! Check terminal for progress."
+            "message": message,
+            "input_images": [os.path.basename(img) for img in input_images]
         })
 
     except Exception as e:
