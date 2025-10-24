@@ -263,39 +263,339 @@ def save_iteration_outputs(iteration_num, workflow_output_2x2, accumulated_grid,
     return paths
 
 
-if __name__ == "__main__":
-    # Basic test of functions
-    print("Testing workflow update functions...")
+def generate_texture_grid(
+    grid_spec,
+    initial_image_path,
+    workflow_template,
+    prompts_config,
+    output_base_dir
+):
+    """Main generator loop: iteratively extend texture downward to build Nx2 grid.
 
-    # Load workflow template
-    workflow_path = Path(__file__).parent.parent / "workflows" / "extend_texture_down_workflow.json"
-    workflow = load_workflow_template(workflow_path)
-    print(f"✓ Loaded workflow: {len(workflow)} nodes")
+    Args:
+        grid_spec: List of [left_type, right_type] pairs, e.g. [["grass", "stone"], ["stone", "grass"]]
+        initial_image_path: Path to initial 2048x1024 image (row 0)
+        workflow_template: Loaded workflow dict
+        prompts_config: Loaded prompts config
+        output_base_dir: Base directory for outputs
 
-    # Load prompts config
-    prompts_path = Path(__file__).parent.parent / "config" / "tile_prompts.json"
-    with open(prompts_path, 'r') as f:
-        prompts = json.load(f)
-    print(f"✓ Loaded prompts: {len(prompts['tile_types'])} tile types, {len(prompts['transitions'])} transitions")
+    Returns:
+        Path to final accumulated grid
+    """
+    # Create timestamped output directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = Path(output_base_dir) / f"grid_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Test update_workflow_prompts
-    test_workflow = copy.deepcopy(workflow)
-    test_workflow = update_workflow_prompts(
-        test_workflow,
-        "grass", "stone",  # top row
-        "stone", "grass",  # bottom row
-        prompts
+    print(f"\n🎨 Starting grid generation: {len(grid_spec)} rows x 2 columns")
+    print(f"📁 Output directory: {output_dir}")
+    print(f"🖼️  Initial image: {initial_image_path}\n")
+
+    # Copy initial image to input/ directory for ComfyUI
+    input_dir = Path("input")
+    input_dir.mkdir(exist_ok=True)
+    input_filename = f"grid_input_{timestamp}.png"
+    input_path = input_dir / input_filename
+    shutil.copy(initial_image_path, input_path)
+
+    # Track state across iterations
+    accumulated_grid_path = None
+    current_input_path = input_path
+
+    # Iterate through grid rows
+    for iteration_num in range(len(grid_spec) - 1):
+        row_idx = iteration_num + 1  # We're generating row 1, 2, 3, etc.
+        print(f"📐 Iteration {iteration_num}: Generating row {row_idx}")
+
+        # Get tile types for current iteration
+        top_left, top_right = grid_spec[iteration_num]
+        bottom_left, bottom_right = grid_spec[row_idx]
+
+        print(f"  Top row: [{top_left}, {top_right}]")
+        print(f"  Bottom row: [{bottom_left}, {bottom_right}]")
+
+        # Update workflow with prompts for this iteration
+        workflow = copy.deepcopy(workflow_template)
+        workflow = update_workflow_prompts(
+            workflow,
+            top_left, top_right,
+            bottom_left, bottom_right,
+            prompts_config
+        )
+
+        # Update workflow with current input image
+        workflow = update_input_image(workflow, current_input_path.name)
+
+        # Submit to RunPod
+        print(f"  ⏳ Submitting to RunPod...")
+        workflow_output_2x2_path = submit_workflow_to_runpod(workflow, current_input_path)
+        print(f"  ✓ Workflow complete: {workflow_output_2x2_path}")
+
+        # Load the 2x2 output
+        workflow_output_2x2_img = Image.open(workflow_output_2x2_path)
+
+        # Extract bottom 1x2 for next iteration
+        bottom_1x2_img = extract_bottom_1x2(workflow_output_2x2_path)
+
+        # Build accumulated grid
+        if accumulated_grid_path is None:
+            # First iteration: use full 2x2 workflow output
+            accumulated_grid_img = workflow_output_2x2_img
+        else:
+            # Subsequent iterations: composite new row onto previous grid
+            accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, bottom_1x2_img)
+
+        # Save iteration outputs
+        paths = save_iteration_outputs(
+            iteration_num,
+            workflow_output_2x2_img,
+            accumulated_grid_img,
+            bottom_1x2_img,
+            output_dir
+        )
+
+        # Update state for next iteration
+        accumulated_grid_path = paths['accumulated']
+
+        # Save next input to input/ directory for ComfyUI
+        next_input_filename = f"grid_input_{timestamp}_iter{iteration_num + 1}.png"
+        current_input_path = input_dir / next_input_filename
+        bottom_1x2_img.save(current_input_path)
+
+        print(f"  ✓ Iteration {iteration_num} complete\n")
+
+    # Copy final accumulated grid to output directory root
+    final_output = output_dir / "final_grid.png"
+    shutil.copy(accumulated_grid_path, final_output)
+
+    print(f"✅ Grid generation complete!")
+    print(f"📊 Final grid: {accumulated_grid_img.size[0]}x{accumulated_grid_img.size[1]}")
+    print(f"🎯 Final output: {final_output}")
+
+    return final_output
+
+
+def generate_from_grid_config(config_path, workflow_template, prompts_config, output_base_dir):
+    """Generate texture grid from JSON config file.
+
+    Args:
+        config_path: Path to grid config JSON
+        workflow_template: Loaded workflow dict
+        prompts_config: Loaded prompts config
+        output_base_dir: Base directory for outputs
+
+    Returns:
+        Path to final accumulated grid
+    """
+    # Load grid config
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+
+    print(f"📋 Loaded config: {config.get('name', 'Unnamed')}")
+    if 'description' in config:
+        print(f"   {config['description']}")
+
+    # Validate grid spec
+    grid = config['grid']
+    if not grid or not all(len(row) == 2 for row in grid):
+        raise ValueError("Grid must be list of [left, right] pairs")
+
+    # Resolve initial image path
+    initial_image = config['initial_image']
+    if not Path(initial_image).exists():
+        # Try relative to config file
+        config_dir = Path(config_path).parent
+        initial_image = config_dir.parent / initial_image
+        if not initial_image.exists():
+            raise FileNotFoundError(f"Initial image not found: {config['initial_image']}")
+
+    # Generate grid
+    return generate_texture_grid(
+        grid,
+        initial_image,
+        workflow_template,
+        prompts_config,
+        output_base_dir
     )
-    print(f"✓ Updated workflow prompts")
-    print(f"  - Left column tile: stone")
-    print(f"  - Right column tile: grass")
-    print(f"  - Left vertical transition: grass_to_stone")
-    print(f"  - Right vertical transition: stone_to_grass")
-    print(f"  - Horizontal transition: stone_to_grass")
 
-    # Test update_input_image
-    test_workflow = update_input_image(test_workflow, "test_input.png")
-    assert test_workflow["200"]["inputs"]["image"] == "test_input.png"
-    print(f"✓ Updated input image to: test_input.png")
 
-    print("\n✓ All functions working correctly!")
+def parse_tile_pattern(pattern_str):
+    """Parse CLI tile pattern string into grid spec.
+
+    Args:
+        pattern_str: Comma-separated pattern like "grass,stone,stone,grass"
+
+    Returns:
+        List of [left, right] pairs
+
+    Examples:
+        "grass,stone,stone,grass" → [["grass", "stone"], ["stone", "grass"]]
+    """
+    tiles = [t.strip() for t in pattern_str.split(',')]
+
+    if len(tiles) % 2 != 0:
+        raise ValueError(f"Pattern must have even number of tiles, got {len(tiles)}")
+
+    # Group into pairs
+    grid = []
+    for i in range(0, len(tiles), 2):
+        grid.append([tiles[i], tiles[i + 1]])
+
+    return grid
+
+
+def main():
+    """Main entry point with dual-mode CLI."""
+    parser = argparse.ArgumentParser(
+        description="Generate Nx2 texture grids by iteratively extending textures downward",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Generate from config file
+  python extend_texture_down.py --config config/example_map_simple.json
+
+  # Generate from CLI pattern
+  python extend_texture_down.py \\
+    --pattern "grass,stone,stone,grass,grass,stone" \\
+    --initial-image input/grass_stone_initial.png
+
+  # Custom output directory
+  python extend_texture_down.py \\
+    --config config/example_map_complex.json \\
+    --output output/my_maps
+        """
+    )
+
+    # Mode selection
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        '--config',
+        type=str,
+        help='Path to grid config JSON file'
+    )
+    mode_group.add_argument(
+        '--pattern',
+        type=str,
+        help='Comma-separated tile pattern (e.g., "grass,stone,stone,grass")'
+    )
+
+    # Required for pattern mode
+    parser.add_argument(
+        '--initial-image',
+        type=str,
+        help='Path to initial 2048x1024 image (required for --pattern mode)'
+    )
+
+    # Optional arguments
+    parser.add_argument(
+        '--output',
+        type=str,
+        default='output',
+        help='Output directory (default: output/)'
+    )
+    parser.add_argument(
+        '--workflow',
+        type=str,
+        default=None,
+        help='Path to workflow JSON (default: workflows/extend_texture_down_workflow.json)'
+    )
+    parser.add_argument(
+        '--prompts',
+        type=str,
+        default=None,
+        help='Path to prompts config JSON (default: config/tile_prompts.json)'
+    )
+
+    args = parser.parse_args()
+
+    # Validate pattern mode requirements
+    if args.pattern and not args.initial_image:
+        parser.error("--pattern mode requires --initial-image")
+
+    # Resolve paths
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent
+
+    workflow_path = Path(args.workflow) if args.workflow else project_root / "workflows" / "extend_texture_down_workflow.json"
+    prompts_path = Path(args.prompts) if args.prompts else project_root / "config" / "tile_prompts.json"
+
+    # Load workflow and prompts
+    print("📂 Loading configuration...")
+    workflow_template = load_workflow_template(workflow_path)
+    print(f"  ✓ Workflow: {workflow_path.name} ({len(workflow_template)} nodes)")
+
+    with open(prompts_path, 'r') as f:
+        prompts_config = json.load(f)
+    print(f"  ✓ Prompts: {len(prompts_config['tile_types'])} tile types, {len(prompts_config['transitions'])} transitions")
+
+    # Execute in appropriate mode
+    try:
+        if args.config:
+            # Config file mode
+            final_output = generate_from_grid_config(
+                args.config,
+                workflow_template,
+                prompts_config,
+                args.output
+            )
+        else:
+            # Pattern mode
+            grid_spec = parse_tile_pattern(args.pattern)
+            final_output = generate_texture_grid(
+                grid_spec,
+                args.initial_image,
+                workflow_template,
+                prompts_config,
+                args.output
+            )
+
+        print(f"\n🎉 Success! Final grid saved to: {final_output}")
+
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    # If run with arguments, execute main()
+    if len(sys.argv) > 1:
+        main()
+    else:
+        # Basic test of functions (backward compatibility)
+        print("Testing workflow update functions...")
+
+        # Load workflow template
+        workflow_path = Path(__file__).parent.parent / "workflows" / "extend_texture_down_workflow.json"
+        workflow = load_workflow_template(workflow_path)
+        print(f"✓ Loaded workflow: {len(workflow)} nodes")
+
+        # Load prompts config
+        prompts_path = Path(__file__).parent.parent / "config" / "tile_prompts.json"
+        with open(prompts_path, 'r') as f:
+            prompts = json.load(f)
+        print(f"✓ Loaded prompts: {len(prompts['tile_types'])} tile types, {len(prompts['transitions'])} transitions")
+
+        # Test update_workflow_prompts
+        test_workflow = copy.deepcopy(workflow)
+        test_workflow = update_workflow_prompts(
+            test_workflow,
+            "grass", "stone",  # top row
+            "stone", "grass",  # bottom row
+            prompts
+        )
+        print(f"✓ Updated workflow prompts")
+        print(f"  - Left column tile: stone")
+        print(f"  - Right column tile: grass")
+        print(f"  - Left vertical transition: grass_to_stone")
+        print(f"  - Right vertical transition: stone_to_grass")
+        print(f"  - Horizontal transition: stone_to_grass")
+
+        # Test update_input_image
+        test_workflow = update_input_image(test_workflow, "test_input.png")
+        assert test_workflow["200"]["inputs"]["image"] == "test_input.png"
+        print(f"✓ Updated input image to: test_input.png")
+
+        print("\n✓ All functions working correctly!")
+        print("\nRun with --help to see usage for grid generation.")
