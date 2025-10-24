@@ -53,11 +53,13 @@ Workflow Copy (extend_texture_down_workflow.json)
     ↓
 [Loop for n-1 iterations]
     ├→ Update workflow with 4 tile types + 3 transitions
-    ├→ Update crop positions for bottom row
+    ├→ Update input image filename
     ├→ Submit to RunPod via send-to-runpod.py
-    ├→ Wait for completion
-    ├→ Download output image
-    └→ Use output as next iteration's input
+    ├→ Wait for completion and download 2x2 output
+    ├→ Extract bottom 1x2 row from 2x2 output
+    ├→ Composite onto accumulated grid (Python)
+    ├→ Save 3 outputs: accumulated grid, 2x2 debug, next 1x2 input
+    └→ Use extracted 1x2 as next iteration's input
     ↓
 Final [nx2] Grid
 ```
@@ -76,8 +78,15 @@ Final [nx2] Grid
     ├── workflows/
     │   └── extend_texture_down_workflow.json  (modified copy)
     └── outputs/
-        ├── phase3_bottom_center_blended_*.png
-        └── extend_texture_progress.json
+        └── my_map_20250124_143022/    (timestamped run directory)
+            ├── iteration_0/
+            │   ├── accumulated_grid.png
+            │   ├── workflow_output_2x2.png
+            │   └── next_input_1x2.png
+            ├── iteration_1/
+            │   └── ... (same structure)
+            ├── final_grid.png         (symlink)
+            └── generation_progress.json
 ```
 
 ### Key Concept: Four Tile Grid
@@ -307,6 +316,19 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 **Files to create:**
 - `map-generator/scripts/extend_texture_down.py` - Main generator script
 
+**Required imports:**
+```python
+import json
+import copy
+import shutil
+import subprocess
+import sys
+import argparse
+from pathlib import Path
+from datetime import datetime
+from PIL import Image
+```
+
 **Implementation:**
 
 1. **Create function to load and parse workflow:**
@@ -409,8 +431,8 @@ def update_input_image(workflow, image_filename):
 **Technical Details:**
 
 **Node Mapping (from modified workflow):**
-- Node 200: Load input image
-- Node 201/202: Crop bottom row tiles (y position must be updated each iteration)
+- Node 200: Load input image (always 2048x1024)
+- Node 201/202: Crop left and right tiles from input (y=0, never changes)
 - Node 10/5: Bottom-right tile prompts
 - Node 50/51: Bottom-left tile prompts
 - Node 103/104: Left vertical transition prompts (NEW)
@@ -418,7 +440,7 @@ def update_input_image(workflow, image_filename):
 - Node 101/102: Horizontal transition prompts (MODIFIED purpose)
 - Node 3: Right column LoRA
 - Node 401: Left column LoRA (inpaint)
-- Node 307: Final output SaveImage
+- Node 307: Final output SaveImage (always 2048x2048)
 
 **Why 4 tile types needed:**
 - Bottom tiles determine what to generate (obvious)
@@ -426,12 +448,12 @@ def update_input_image(workflow, image_filename):
 - All 3 transitions can use different prompts
 
 **Testing:**
-- Load workflow template
+- Load workflow template successfully
 - Update with all 4 tile types
 - Verify all 3 transitions use correct prompts
-- Verify crop positions updated correctly
+- Verify LoRA settings updated for both columns
 - Test with same tile types (grass/grass/grass/grass)
-- Test with mixed types
+- Test with mixed types (grass/stone/stone/grass)
 
 ### Phase 3: Implement RunPod Submission and Image Processing
 
@@ -513,18 +535,17 @@ def extract_bottom_1x2(image_2x2_path):
 def composite_accumulated_grid(previous_grid_path, new_row_image):
     """Composite new row onto accumulated grid.
 
+    NOTE: Do not call this for the first iteration (iteration 0).
+    For iteration 0, use the full 2x2 workflow output directly as the accumulated grid.
+
     Args:
-        previous_grid_path: Path to previous accumulated grid (or None for first iteration)
+        previous_grid_path: Path to previous accumulated grid (must not be None)
         new_row_image: PIL Image of new 1x2 row (2048x1024)
 
     Returns:
         PIL Image of new accumulated grid
     """
     from PIL import Image
-
-    if previous_grid_path is None:
-        # First iteration: just return the new row
-        return new_row_image
 
     # Load previous grid
     previous_grid = Image.open(previous_grid_path)
@@ -747,7 +768,12 @@ def generate_texture_grid(
         bottom_1x2_img = extract_bottom_1x2(workflow_output_2x2_path)
 
         # Composite accumulated grid
-        accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, bottom_1x2_img)
+        if accumulated_grid_path is None:
+            # First iteration: use full 2x2 workflow output as accumulated grid
+            accumulated_grid_img = workflow_output_2x2_img
+        else:
+            # Subsequent iterations: composite new row onto previous grid
+            accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, bottom_1x2_img)
 
         # Save all three outputs
         saved_paths = save_iteration_outputs(
