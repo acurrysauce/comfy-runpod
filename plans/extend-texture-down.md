@@ -1,5 +1,7 @@
 # Extend Texture Down Generator Plan
 
+> **Note:** Branch is currently named `feature/parameterized-checkerboard-generator` but should be renamed to `feature/extend-texture-down` to match updated terminology.
+
 ## Overview
 
 Create a Python script that parameterizes the `checkerboard_phase3_bottom_blend_api.json` workflow to generate [nx2] tile grids of any height. The workflow currently creates a 2x2 grid from a 1x2 input by extending downward. This script will run the workflow iteratively, using each iteration's output as the next iteration's input, building progressively taller grids.
@@ -139,7 +141,7 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 "105": {
   "inputs": {
     "text": "natural transition between stone and grass, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
-    "clip": ["401", 1]
+    "clip": ["3", 1]
   },
   "class_type": "CLIPTextEncode",
   "_meta": {
@@ -149,7 +151,7 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 "106": {
   "inputs": {
     "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
-    "clip": ["401", 1]
+    "clip": ["3", 1]
   },
   "class_type": "CLIPTextEncode",
   "_meta": {
@@ -157,6 +159,11 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
   }
 }
 ```
+
+**Important wiring:**
+- Nodes 103/104 (left column): Connect to node 401 CLIP output (left column inpaint LoRA loader)
+- Nodes 105/106 (right column): Connect to node 3 CLIP output (right column base LoRA loader)
+- This ensures each transition uses the correct LoRA's CLIP encoder
 
 3. **Update KSampler nodes to use new prompts:**
 - Node 229a (left vertical blend): Change positive from `["101", 0]` to `["103", 0]`, negative from `["102", 0]` to `["104", 0]`
@@ -174,6 +181,8 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 
 ### Phase 1: Extract Prompts and Create JSON Configs
 
+**Prerequisites:** Phase 0 must be complete (modified workflow with nodes 103-106 created)
+
 **Files to create:**
 - `map-generator/config/tile_prompts.json` - All prompts and models
 - `map-generator/config/example_map_simple.json` - Example grid config
@@ -181,12 +190,12 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 
 **Implementation:**
 
-1. **Extract prompts from workflow nodes:**
-   - Node 10/5: Grass tile prompts
-   - Node 50/51: Stone tile prompts
-   - Node 103/104: Left vertical transition (grass→stone)
-   - Node 105/106: Right vertical transition (stone→grass)
-   - Node 101/102: Horizontal transition (stone↔grass)
+1. **Extract prompts from the MODIFIED workflow nodes:**
+   - Node 10/5: Grass tile prompts (from original)
+   - Node 50/51: Stone tile prompts (from original)
+   - Node 103/104: Left vertical transition (grass→stone) - **NEW in Phase 0**
+   - Node 105/106: Right vertical transition (stone→grass) - **NEW in Phase 0**
+   - Node 101/102: Horizontal transition (stone↔grass) - **REPURPOSED in Phase 0**
 
 2. **Design JSON structure:**
 ```json
@@ -376,15 +385,14 @@ def update_workflow_prompts(
     return workflow
 ```
 
-3. **Create function to update input image and crop positions:**
+3. **Create function to update input image:**
 ```python
-def update_input_and_crop(workflow, image_filename, image_height):
-    """Update workflow to use specific input image and crop bottom row.
+def update_input_image(workflow, image_filename):
+    """Update workflow to use specific input image.
 
     Args:
         workflow: Workflow dict to modify
-        image_filename: Filename in input/ directory
-        image_height: Height of input image in pixels
+        image_filename: Filename in input/ directory (must be 2048x1024)
 
     Returns:
         Modified workflow dict
@@ -392,15 +400,8 @@ def update_input_and_crop(workflow, image_filename, image_height):
     # Update input image
     workflow["200"]["inputs"]["image"] = image_filename
 
-    # Update crop positions to get bottom row
-    # Each tile is 1024x1024, so crop from (height - 1024)
-    crop_y = image_height - 1024
-
-    # Node 201: Crop left tile from bottom row
-    workflow["201"]["inputs"]["y"] = crop_y
-
-    # Node 202: Crop right tile from bottom row
-    workflow["202"]["inputs"]["y"] = crop_y
+    # Note: Crop nodes 201-202 remain at y=0 since input is always 2048x1024
+    # They crop the left and right halves respectively
 
     return workflow
 ```
@@ -432,25 +433,24 @@ def update_input_and_crop(workflow, image_filename, image_height):
 - Test with same tile types (grass/grass/grass/grass)
 - Test with mixed types
 
-### Phase 3: Implement RunPod Submission and Polling
+### Phase 3: Implement RunPod Submission and Image Processing
 
 **Implementation:**
 
 1. **Create function to submit workflow to RunPod:**
 ```python
-def submit_workflow(workflow, input_image_path, output_dir):
+def submit_workflow_to_runpod(workflow, input_image_path):
     """Submit workflow to RunPod and wait for completion.
 
     Args:
         workflow: Updated workflow dict
-        input_image_path: Path to input image file
-        output_dir: Directory to save output
+        input_image_path: Path to input 1x2 image file (2048x1024)
 
     Returns:
-        Path to output image
+        Path to downloaded 2x2 output image (2048x2048)
     """
     # Save workflow to temp file
-    workflow_path = Path("temp_checkerboard_workflow.json")
+    workflow_path = Path("temp_extend_texture_workflow.json")
     with open(workflow_path, 'w') as f:
         json.dump(workflow, f, indent=2)
 
@@ -470,51 +470,124 @@ def submit_workflow(workflow, input_image_path, output_dir):
         raise RuntimeError(f"Workflow submission failed: {result.stderr}")
 
     # Find most recent output image
+    # send-to-runpod.py downloads to output/ directory
     output_files = sorted(
-        Path(output_dir).glob("phase3_bottom_center_blended_*.png"),
+        Path("output").glob("phase3_bottom_center_blended_*.png"),
         key=lambda p: p.stat().st_mtime,
         reverse=True
     )
 
     if not output_files:
-        raise RuntimeError("No output image found")
+        raise RuntimeError("No output image found after workflow execution")
 
     return output_files[0]
 ```
 
-2. **Add polling with timeout:**
+2. **Create function to extract bottom 1x2 row:**
 ```python
-def wait_for_output(output_prefix, output_dir, timeout=300):
-    """Poll output directory for new image.
+def extract_bottom_1x2(image_2x2_path):
+    """Extract bottom 1x2 row from 2x2 workflow output.
 
     Args:
-        output_prefix: Expected filename prefix
-        output_dir: Directory to watch
-        timeout: Max seconds to wait
+        image_2x2_path: Path to 2048x2048 image
 
     Returns:
-        Path to new output image
+        PIL Image of bottom 1024 pixels (2048x1024)
     """
-    start_time = time.time()
-    initial_files = set(Path(output_dir).glob(f"{output_prefix}*.png"))
+    from PIL import Image
 
-    while (time.time() - start_time) < timeout:
-        current_files = set(Path(output_dir).glob(f"{output_prefix}*.png"))
-        new_files = current_files - initial_files
+    img = Image.open(image_2x2_path)
 
-        if new_files:
-            return max(new_files, key=lambda p: p.stat().st_mtime)
+    # Verify dimensions
+    if img.size != (2048, 2048):
+        raise ValueError(f"Expected 2048x2048, got {img.size}")
 
-        time.sleep(5)  # Poll every 5 seconds
+    # Crop bottom 1024 pixels
+    bottom_1x2 = img.crop((0, 1024, 2048, 2048))
 
-    raise TimeoutError(f"Output not generated within {timeout} seconds")
+    return bottom_1x2
+```
+
+3. **Create function to composite accumulated grid:**
+```python
+def composite_accumulated_grid(previous_grid_path, new_row_image):
+    """Composite new row onto accumulated grid.
+
+    Args:
+        previous_grid_path: Path to previous accumulated grid (or None for first iteration)
+        new_row_image: PIL Image of new 1x2 row (2048x1024)
+
+    Returns:
+        PIL Image of new accumulated grid
+    """
+    from PIL import Image
+
+    if previous_grid_path is None:
+        # First iteration: just return the new row
+        return new_row_image
+
+    # Load previous grid
+    previous_grid = Image.open(previous_grid_path)
+
+    # Create new canvas
+    prev_height = previous_grid.size[1]
+    new_height = prev_height + 1024
+
+    accumulated = Image.new('RGB', (2048, new_height))
+
+    # Paste previous grid at top
+    accumulated.paste(previous_grid, (0, 0))
+
+    # Paste new row at bottom
+    accumulated.paste(new_row_image, (0, prev_height))
+
+    return accumulated
+```
+
+4. **Create function to save three outputs:**
+```python
+def save_iteration_outputs(iteration_num, workflow_output_2x2, accumulated_grid, next_input_1x2, output_dir):
+    """Save all three output images for an iteration.
+
+    Args:
+        iteration_num: Iteration number (0-indexed)
+        workflow_output_2x2: PIL Image (2048x2048)
+        accumulated_grid: PIL Image (2048 x N*1024)
+        next_input_1x2: PIL Image (2048x1024)
+        output_dir: Base output directory
+
+    Returns:
+        dict with paths to all saved images
+    """
+    # Create iteration directory
+    iter_dir = output_dir / f"iteration_{iteration_num}"
+    iter_dir.mkdir(parents=True, exist_ok=True)
+
+    # Save three outputs
+    paths = {
+        'workflow_2x2': iter_dir / "workflow_output_2x2.png",
+        'accumulated': iter_dir / "accumulated_grid.png",
+        'next_input': iter_dir / "next_input_1x2.png"
+    }
+
+    workflow_output_2x2.save(paths['workflow_2x2'])
+    accumulated_grid.save(paths['accumulated'])
+    next_input_1x2.save(paths['next_input'])
+
+    print(f"  Saved to {iter_dir}/")
+    print(f"    - workflow_output_2x2.png (2048x2048)")
+    print(f"    - accumulated_grid.png ({accumulated_grid.size[0]}x{accumulated_grid.size[1]})")
+    print(f"    - next_input_1x2.png (2048x1024)")
+
+    return paths
 ```
 
 **Testing:**
-- Submit a single workflow
-- Verify polling detects output
-- Test timeout handling
-- Verify output image path is correct
+- Submit a single workflow with 1x2 input
+- Verify 2x2 output downloaded correctly
+- Test extracting bottom 1x2 from 2x2 output
+- Test compositing accumulated grid
+- Verify all three images saved to correct locations
 
 ### Phase 4: Implement Main Generator Loop
 
@@ -580,7 +653,7 @@ def generate_from_grid_config(
     )
 ```
 
-2. **Create main generator function (handles 4 tiles at a time):**
+2. **Create main generator function:**
 ```python
 def generate_texture_grid(
     num_rows,
@@ -588,22 +661,25 @@ def generate_texture_grid(
     tile_pattern,
     prompts_config_path,
     workflow_template_path,
-    output_dir
+    base_output_dir
 ):
-    """Generate n x 2 tile grid.
+    """Generate n x 2 tile grid by iteratively extending downward.
 
     Args:
         num_rows: Total rows in output (including initial row)
-        initial_image: Path to starting 1x2 image
+        initial_image: Path to starting 1x2 image (2048x1024)
         tile_pattern: List of tuples [(left_type, right_type), ...] for each row
                       e.g., [("grass", "stone"), ("stone", "grass"), ("grass", "stone")]
         prompts_config_path: Path to prompts JSON
         workflow_template_path: Path to workflow template
-        output_dir: Directory for outputs
+        base_output_dir: Base output directory (will create timestamped subdirectory)
 
     Returns:
-        Path to final output image
+        Path to final accumulated grid
     """
+    from PIL import Image
+    from datetime import datetime
+
     # Load configuration
     with open(prompts_config_path, 'r') as f:
         prompts = json.load(f)
@@ -614,33 +690,46 @@ def generate_texture_grid(
     if len(tile_pattern) != num_rows:
         raise ValueError(f"Pattern length ({len(tile_pattern)}) must match num_rows ({num_rows})")
 
-    # Copy initial image to input directory
-    current_input = Path("input") / initial_image.name
-    shutil.copy(initial_image, current_input)
+    # Validate initial image dimensions
+    initial_img = Image.open(initial_image)
+    if initial_img.size != (2048, 1024):
+        raise ValueError(f"Initial image must be 2048x1024, got {initial_img.size}")
 
-    # Track current image height
-    current_height = 1024  # Initial image is 1024 tall (1 row)
+    # Create timestamped run directory
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    grid_name = base_output_dir.name if hasattr(base_output_dir, 'name') else 'grid'
+    run_dir = base_output_dir / f"{grid_name}_{timestamp}"
+    run_dir.mkdir(parents=True, exist_ok=True)
 
-    # Track intermediate outputs
-    outputs = []
+    print(f"\\n=== Starting Grid Generation ===")
+    print(f"Output directory: {run_dir}")
+    print(f"Total rows to generate: {num_rows} (initial + {num_rows - 1} iterations)")
 
-    # Generate n-1 additional rows (input is row 0)
+    # Copy initial image to input directory for workflow access
+    input_dir = Path("input")
+    current_input_1x2_path = input_dir / f"iter_0_input.png"
+    shutil.copy(initial_image, current_input_1x2_path)
+
+    # Track accumulated grid path (None for first iteration)
+    accumulated_grid_path = None
+
+    # Generate n-1 additional rows (initial image is row 0)
     for iteration in range(num_rows - 1):
-        print(f"\\n=== Iteration {iteration + 1}/{num_rows - 1} ===")
+        print(f"\\n=== Iteration {iteration}/{num_rows - 1} ===")
 
-        # Get tile types for current row (top) and next row (bottom being created)
-        current_row_index = iteration  # 0-indexed row we're extending from
-        next_row_index = iteration + 1  # Row we're creating
+        # Get tile types for current and next row
+        current_row_index = iteration
+        next_row_index = iteration + 1
 
         top_left, top_right = tile_pattern[current_row_index]
         bottom_left, bottom_right = tile_pattern[next_row_index]
 
-        print(f"Top row {current_row_index}: [{top_left}, {top_right}]")
-        print(f"Creating row {next_row_index}: [{bottom_left}, {bottom_right}]")
+        print(f"  Input row {current_row_index}: [{top_left:10s}, {top_right:10s}]")
+        print(f"  Generating row {next_row_index}: [{bottom_left:10s}, {bottom_right:10s}]")
 
         # Update workflow with all 4 tile types
         workflow = copy.deepcopy(workflow_template)
-        workflow = update_input_and_crop(workflow, current_input.name, current_height)
+        workflow = update_input_image(workflow, current_input_1x2_path.name)
         workflow = update_workflow_prompts(
             workflow,
             top_left, top_right,
@@ -648,28 +737,45 @@ def generate_texture_grid(
             prompts
         )
 
-        # Submit to RunPod
-        print("Submitting to RunPod...")
-        output_path = submit_workflow(workflow, current_input, output_dir)
-        outputs.append(output_path)
+        # Submit to RunPod and wait for 2x2 output
+        print("  Submitting to RunPod...")
+        workflow_output_2x2_path = submit_workflow_to_runpod(workflow, current_input_1x2_path)
+        print(f"  Workflow complete: {workflow_output_2x2_path.name}")
 
-        print(f"Output saved: {output_path}")
+        # Extract bottom 1x2 row from 2x2 output
+        workflow_output_2x2_img = Image.open(workflow_output_2x2_path)
+        bottom_1x2_img = extract_bottom_1x2(workflow_output_2x2_path)
 
-        # Use this output as next iteration's input
-        next_input = Path("input") / f"iteration_{iteration + 1}_output.png"
-        shutil.copy(output_path, next_input)
-        current_input = next_input
+        # Composite accumulated grid
+        accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, bottom_1x2_img)
 
-        # Update height for next iteration
-        current_height += 1024
+        # Save all three outputs
+        saved_paths = save_iteration_outputs(
+            iteration_num=iteration,
+            workflow_output_2x2=workflow_output_2x2_img,
+            accumulated_grid=accumulated_grid_img,
+            next_input_1x2=bottom_1x2_img,
+            output_dir=run_dir
+        )
 
-        print(f"Ready for next iteration with input: {current_input} ({current_height}px tall)")
+        # Update tracking variables for next iteration
+        accumulated_grid_path = saved_paths['accumulated']
+        current_input_1x2_path = saved_paths['next_input']
+
+        print(f"  Accumulated grid: {accumulated_grid_img.size[0]}x{accumulated_grid_img.size[1]}")
+
+    # Create symlink to final grid
+    final_grid_link = run_dir / "final_grid.png"
+    if final_grid_link.exists():
+        final_grid_link.unlink()
+    final_grid_link.symlink_to(accumulated_grid_path.relative_to(run_dir))
 
     print(f"\\n=== Generation Complete ===")
-    print(f"Generated {num_rows}x2 grid")
-    print(f"Final output: {outputs[-1]}")
+    print(f"Generated {num_rows}x2 grid ({2048}x{num_rows * 1024})")
+    print(f"Final output: {accumulated_grid_path}")
+    print(f"Quick access: {final_grid_link}")
 
-    return outputs[-1]
+    return accumulated_grid_path
 ```
 
 3. **Create CLI interface with dual modes:**
@@ -937,7 +1043,7 @@ def resume_generation(progress_file, ...):
 
     # Continue from where we left off
     for iteration in range(completed, num_rows - 1):
-        # ... (same loop as generate_checkerboard)
+        # ... (same loop as generate_texture_grid)
 ```
 
 **Error Cases:**
@@ -1022,6 +1128,104 @@ def resume_generation(progress_file, ...):
 
 **Verdict:** Not chosen - reuse existing infrastructure
 
+## Path to NxN Grid Generation
+
+This Nx2 implementation is the **first building block** for full NxN grid generation. Here's the complete strategy:
+
+### Three Workflows Needed
+
+**1. Extend Down (Current Workflow) - Nx2 Grids**
+- Input: 1x2 row (2048x1024)
+- Output: 2x2 grid (2048x2048)
+- Purpose: Build vertical strips of arbitrary height
+- Status: This plan
+
+**2. Extend Right (Future Workflow) - 2xM Grids**
+- Input: 2x1 column (1024x2048)
+- Output: 2x2 grid (2048x2048)
+- Purpose: Build horizontal strips of arbitrary width
+- Implementation: Transpose of current workflow
+  - Crop top/bottom instead of left/right
+  - Outpaint horizontally instead of vertically
+  - 3 transitions: top horiz, bottom horiz, right vertical seam
+- Status: Future phase
+
+**3. Fill Corner (Future Workflow) - 3 tiles → 4th tile**
+- Input: 3 tiles in L-shape (top-left, top-right, bottom-left)
+- Output: Complete 2x2 grid with filled bottom-right
+- Purpose: Complete partial grids without full row/column
+- Implementation: Similar but uses 3 input tiles
+  - Inpaint bottom-right corner only
+  - Blend 3 seams (right edge, bottom edge, corner)
+- Status: Future phase
+
+### NxN Orchestration Strategy
+
+To generate an NxN grid (e.g., 4x4):
+
+```
+Step 1: Use "Extend Down" to create first column (Nx1)
+  Input: Initial tile
+  → 2x1, 3x1, 4x1, ..., Nx1
+
+Step 2: Use "Extend Right" to create each row from column
+  For each tile in column:
+    Input: Single tile (1x1)
+    → 2x1, 3x1, 4x1, ..., Mx1 row
+
+Step 3: Composite all rows into NxM grid
+
+Alternative: Use "Fill Corner" for partial grids
+  If you have 3 tiles, directly fill 4th instead of full row/column
+```
+
+**Example: 4x4 Grid Generation**
+```
+Phase 1 (Extend Down): Build left column
+[A]       [A]       [A]       [A]
+          [E]       [E]       [E]
+                    [I]       [I]
+                              [M]
+
+Phase 2 (Extend Right): Extend each row rightward
+[A]       [A][B]    [A][B][C]    [A][B][C][D]
+[E]       [E][F]    [E][F][G]    [E][F][G][H]
+[I]       [I][J]    [I][J][K]    [I][J][K][L]
+[M]       [M][N]    [M][N][O]    [M][N][O][P]
+
+(Python composites all rows)
+```
+
+### Why This Approach Works
+
+**Advantages:**
+- ✓ Each workflow is simple (only handles 2x2)
+- ✓ Reuses same blending/transition logic
+- ✓ Python orchestration keeps workflows focused
+- ✓ Can generate any NxM dimensions
+- ✓ Progress is monitored at each step
+
+**Complexity:**
+- Each workflow generates 2x2 from smaller input
+- Python handles all compositing and orchestration
+- No complex multi-tile workflows needed
+
+### Extensibility of Current Plan
+
+**What transfers directly:**
+- ✓ Prompt/transition config structure (tile_prompts.json)
+- ✓ Grid config JSON format (can extend to 2D arrays)
+- ✓ Three-output pattern (accumulated/2x2/next_input)
+- ✓ Python compositing logic
+- ✓ send-to-runpod.py integration
+
+**What needs adaptation:**
+- Workflow itself (transpose for horizontal)
+- Transition mappings (different seams)
+- Orchestration function (2D instead of 1D iteration)
+
+**Verdict:** This Nx2 plan is an excellent foundation. The transposed workflow will be very similar, and the orchestration layer is straightforward Python logic.
+
 ## Technical Details
 
 ### Workflow Node Analysis
@@ -1044,65 +1248,81 @@ def resume_generation(progress_file, ...):
 - Node 101 inputs.text: Transition positive prompt
 - Node 102 inputs.text: Transition negative prompt
 
-### Image Dimensions
+### Image Dimensions and Iteration Strategy
 
-**Throughout workflow:**
-- Input: 2048 x 1024 (1x2 tiles)
-- After crop: 1024 x 1024 each
-- After outpaint: 1024 x 2048 each column
+**Key Insight:** The workflow ALWAYS outputs 2048x2048 (exactly 2 rows). We use Python compositing to build the accumulated grid.
+
+**Workflow dimensions (fixed):**
+- Input: 2048 x 1024 (1x2 tiles - bottom row of current grid)
+- After crop: 1024 x 1024 each tile
+- After outpaint: 1024 x 2048 each column (original + extended)
 - After stitch: 2048 x 2048 (2x2 tiles)
-- Output: 2048 x 2048
+- **Output: ALWAYS 2048 x 2048** (top row from input + new bottom row)
 
-**For n iterations:**
-- Iteration 0: Input (2048 x 1024) → Output (2048 x 2048) = 2x2 tiles
-- Iteration 1: Input (2048 x 2048) → Output (2048 x 3072) = 3x2 tiles
-- Iteration 2: Input (2048 x 3072) → Output (2048 x 4096) = 4x2 tiles
-- Iteration n-1: Input (2048 x n*1024) → Output (2048 x (n+1)*1024) = (n+1)x2 tiles
+**Iteration strategy:**
 
-Wait, this doesn't match the workflow! The workflow always crops to 1024x1024 from the top, so it won't work with variable height inputs...
+**Iteration 0 (initial):**
+```
+Input to workflow:  [Row 0] (2048x1024)
+Workflow output:    [Row 0, Row 1] (2048x2048)
+Extract bottom 1x2: [Row 1] (2048x1024) → next input
+Python composites:  [Row 0, Row 1] (2048x2048) → accumulated grid
+```
 
-**ISSUE IDENTIFIED:** The workflow is hardcoded to crop the top row. To support variable heights, we need to:
-1. Crop the BOTTOM row (not top)
-2. OR: Modify workflow to handle variable height inputs
+**Iteration 1:**
+```
+Input to workflow:  [Row 1] (2048x1024)
+Workflow output:    [Row 1, Row 2] (2048x2048)
+Extract bottom 1x2: [Row 2] (2048x1024) → next input
+Python composites:  [Row 0, Row 1] + [Row 2] → [Row 0, Row 1, Row 2] (2048x3072)
+```
 
-Let me reconsider...
+**Iteration n:**
+```
+Input to workflow:  [Row n] (2048x1024)
+Workflow output:    [Row n, Row n+1] (2048x2048)
+Extract bottom 1x2: [Row n+1] (2048x1024) → next input
+Python composites:  accumulated_grid + [Row n+1] → (2048 x (n+2)*1024)
+```
 
-Actually, looking again at node 201-202, they crop at y=0, so they take the TOP row. To iterate, we need to crop the BOTTOM row instead.
+**Three outputs per iteration:**
+1. **Accumulated grid** (`accumulated_grid_iteration_N.png`): Full Nx2 grid built so far
+2. **Workflow 2x2 output** (`workflow_output_2x2_iteration_N.png`): Raw workflow result (for debugging)
+3. **Bottom 1x2 for next iteration** (`next_input_1x2_iteration_N.png`): Extracted bottom row
 
-**Revised Approach:**
-For each iteration, we need to update the crop coordinates:
-- Node 201 (left crop): x=0, y=(height-1024), width=1024, height=1024
-- Node 202 (right crop): x=1024, y=(height-1024), width=1024, height=1024
-
-Where height = current_image_height_pixels
-
-This way we're always extending the bottom row downward.
-
-**Updated Node Modifications:**
-- Node 201 inputs.y: Set to (current_height - 1024)
-- Node 202 inputs.y: Set to (current_height - 1024)
+**Why this approach:**
+- ✓ Don't send large accumulated grids to RunPod (saves bandwidth/cost)
+- ✓ Keep workflow input always 2048x1024 (simple, no variable height handling)
+- ✓ Python compositing is fast and simple
+- ✓ Three outputs allow monitoring progress and debugging
 
 ### File Paths and Naming
 
-**Directory Structure:**
+**Output organization per iteration:**
 ```
-/home/acurry/comfy-runpod/
-├── config/
-│   └── tile_prompts.json
-├── scripts/
-│   └── checkerboard_generator.py
-├── workflows/
-│   └── checkerboard_phase3_bottom_blend_api.json  (template)
-├── input/
-│   ├── grass_stone_row.png  (initial)
-│   ├── iteration_1_output.png
-│   ├── iteration_2_output.png
-│   └── ...
-└── output/
-    ├── phase3_bottom_center_blended_00001_.png
-    ├── phase3_bottom_center_blended_00002_.png
-    └── extend_texture_progress.json
+map-generator/outputs/
+└── my_map_20250124_143022/  (timestamped run directory)
+    ├── iteration_0/
+    │   ├── accumulated_grid.png           (2048x2048 - Rows 0-1)
+    │   ├── workflow_output_2x2.png        (2048x2048 - Debug)
+    │   └── next_input_1x2.png             (2048x1024 - Row 1)
+    ├── iteration_1/
+    │   ├── accumulated_grid.png           (2048x3072 - Rows 0-2)
+    │   ├── workflow_output_2x2.png        (2048x2048 - Debug)
+    │   └── next_input_1x2.png             (2048x1024 - Row 2)
+    ├── iteration_2/
+    │   ├── accumulated_grid.png           (2048x4096 - Rows 0-3)
+    │   ├── workflow_output_2x2.png        (2048x2048 - Debug)
+    │   └── next_input_1x2.png             (2048x1024 - Row 3)
+    ├── final_grid.png                     (symlink to last accumulated_grid.png)
+    └── generation_progress.json           (metadata and progress tracking)
 ```
+
+**Benefits:**
+- Easy to monitor progress (check latest iteration folder)
+- Debug any iteration by looking at workflow_output_2x2.png
+- Can resume from any iteration
+- Timestamped runs prevent overwriting
 
 ## Example Usage
 
