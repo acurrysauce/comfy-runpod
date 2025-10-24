@@ -1,40 +1,70 @@
 {
-  "200": {
+  "302": {
     "inputs": {
-      "image": "grass_stone_row.png"
+      "grow": 0,
+      "blur": 160,
+      "mask": [
+        "301",
+        0
+      ]
     },
-    "class_type": "LoadImage",
+    "class_type": "INPAINT_ExpandMask",
     "_meta": {
-      "title": "Load Top Row (Grass\u2192Stone)"
+      "title": "Phase 3 - Expand/Blur Mask"
     }
   },
-  "211": {
+  "301": {
     "inputs": {
-      "filename_prefix": "debug_right_tile_stone",
+      "method": "intensity",
+      "image": [
+        "300",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Phase 3 - Convert Rect to Mask"
+    }
+  },
+  "302c": {
+    "inputs": {
+      "filename_prefix": "debug_phase3_mask_visualization",
       "images": [
-        "202",
+        "302b",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "Debug - Right Tile (Stone)"
+      "title": "DEBUG - Mask Visualization"
     }
   },
-  "202": {
+  "302b": {
     "inputs": {
-      "width": 1024,
-      "height": 1024,
-      "x": 1024,
-      "y": 0,
-      "image": [
-        "200",
+      "mask": [
+        "302",
         0
       ]
     },
-    "class_type": "ImageCrop",
+    "class_type": "MaskToImage",
     "_meta": {
-      "title": "Crop Right Half (Stone)"
+      "title": "DEBUG - Mask as Image"
+    }
+  },
+  "300": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 512,
+      "y": 900,
+      "width": 1024,
+      "height": 1500,
+      "image_width": 2048,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Phase 3 - Bottom Center Vertical Seam Mask"
     }
   }
 }
