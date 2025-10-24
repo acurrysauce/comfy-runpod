@@ -9,6 +9,72 @@ app.registerExtension({
         try {
             console.log("RunPod extension setup starting...");
 
+            // Store last results globally (just filenames)
+            let lastRunpodResults = null;  // {filenames: [...], source: "queue"|"selected"}
+
+            // Shared function to display image overlay
+            function showImageOverlay(images, title) {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.95);
+                    z-index: 10000;
+                    overflow: auto;
+                    padding: 20px;
+                    box-sizing: border-box;
+                `;
+
+                overlay.innerHTML = `
+                    <div style="max-width: 1200px; margin: 0 auto;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <h1 style="color: #4CAF50; margin: 0;">${title}</h1>
+                            <button id="runpod-close-overlay" style="
+                                background: #f44336;
+                                color: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 4px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                font-weight: 500;
+                            ">Close</button>
+                        </div>
+                        ${images.map(img => `
+                            <div style="margin: 20px 0; background: #2a2a2a; padding: 15px; border-radius: 8px;">
+                                <div style="color: #888; font-size: 14px; margin-bottom: 10px;">${img.filename}</div>
+                                <img src="${img.url}" alt="${img.filename}" style="
+                                    max-width: 512px;
+                                    width: 100%;
+                                    height: auto;
+                                    display: block;
+                                    border-radius: 4px;
+                                ">
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                document.body.appendChild(overlay);
+
+                // Close button handler
+                document.getElementById('runpod-close-overlay').onclick = () => {
+                    document.body.removeChild(overlay);
+                };
+
+                // Close on escape key
+                const escapeHandler = (e) => {
+                    if (e.key === 'Escape' && document.body.contains(overlay)) {
+                        document.body.removeChild(overlay);
+                        document.removeEventListener('keydown', escapeHandler);
+                    }
+                };
+                document.addEventListener('keydown', escapeHandler);
+            }
+
             // Wait for DOM to be ready
             const addButton = () => {
                 // Find the action bar (top right buttons in new UI)
@@ -202,76 +268,19 @@ app.registerExtension({
 
                                             console.log('RunPod: Image depths:', newImages.map(img => ({name: img.filename, depth: img.depth})));
 
-                                            // Create overlay to display images
-                                            const overlay = document.createElement('div');
-                                            overlay.style.cssText = `
-                                                position: fixed;
-                                                top: 0;
-                                                left: 0;
-                                                width: 100%;
-                                                height: 100%;
-                                                background: rgba(0, 0, 0, 0.95);
-                                                z-index: 10000;
-                                                overflow: auto;
-                                                padding: 20px;
-                                                box-sizing: border-box;
-                                            `;
-
-                                            overlay.innerHTML = `
-                                                <div style="max-width: 1200px; margin: 0 auto;">
-                                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                                                        <h1 style="color: #4CAF50; margin: 0;">✓ RunPod Results (${newImages.length} image${newImages.length !== 1 ? 's' : ''})</h1>
-                                                        <button id="runpod-close-overlay" style="
-                                                            background: #f44336;
-                                                            color: white;
-                                                            border: none;
-                                                            padding: 10px 20px;
-                                                            border-radius: 4px;
-                                                            cursor: pointer;
-                                                            font-size: 16px;
-                                                            font-weight: 500;
-                                                        ">Close</button>
-                                                    </div>
-                                                    ${newImages.map(img => `
-                                                        <div style="
-                                                            margin: 20px 0;
-                                                            background: #2a2a2a;
-                                                            padding: 15px;
-                                                            border-radius: 8px;
-                                                        ">
-                                                            <div style="
-                                                                color: #888;
-                                                                font-size: 14px;
-                                                                margin-bottom: 10px;
-                                                            ">${img.filename}</div>
-                                                            <img src="${img.url}" alt="${img.filename}" style="
-                                                                max-width: 512px;
-                                                                width: 100%;
-                                                                height: auto;
-                                                                display: block;
-                                                                border-radius: 4px;
-                                                            ">
-                                                        </div>
-                                                    `).join('')}
-                                                </div>
-                                            `;
-
-                                            // Add overlay to page
-                                            document.body.appendChild(overlay);
-
-                                            // Close button handler
-                                            document.getElementById('runpod-close-overlay').onclick = () => {
-                                                document.body.removeChild(overlay);
+                                            // Save results (just filenames)
+                                            lastRunpodResults = {
+                                                filenames: newImages.map(img => img.filename),
+                                                source: "queue"
                                             };
 
-                                            // Close on escape key
-                                            const escapeHandler = (e) => {
-                                                if (e.key === 'Escape' && document.body.contains(overlay)) {
-                                                    document.body.removeChild(overlay);
-                                                    document.removeEventListener('keydown', escapeHandler);
-                                                }
-                                            };
-                                            document.addEventListener('keydown', escapeHandler);
+                                            // Enable View Results button
+                                            if (typeof enableViewResults === 'function') {
+                                                enableViewResults();
+                                            }
+
+                                            // Show overlay using shared function
+                                            showImageOverlay(newImages, `✓ RunPod Results (${newImages.length} image${newImages.length !== 1 ? 's' : ''})`);
 
                                             // Re-enable button
                                             runpodBtn.disabled = false;
@@ -402,7 +411,246 @@ app.registerExtension({
                 // Load initial worker status
                 updateWorkerStatus();
 
-                console.log("RunPod Queue button and Worker Toggle added to interface");
+                // Helper function to get selected SaveImage nodes
+                function getSelectedSaveImageNodes() {
+                    const selected = app.canvas.selected_nodes;
+                    if (!selected || Object.keys(selected).length === 0) {
+                        return [];
+                    }
+
+                    // Get workflow to check node types
+                    const workflow = app.graph._nodes_by_id;
+
+                    // Collect all selected SaveImage nodes
+                    const saveImageNodes = [];
+                    for (const nodeId in selected) {
+                        const node = workflow[nodeId];
+                        if (node && node.type === 'SaveImage') {
+                            saveImageNodes.push({
+                                id: nodeId,
+                                node: node
+                            });
+                        }
+                    }
+
+                    return saveImageNodes;
+                }
+
+                // Create "Run to Selected" button
+                const runToSelectedBtn = document.createElement("button");
+                runToSelectedBtn.id = "runpod-run-to-selected-button";
+                runToSelectedBtn.textContent = "Run to Selected";
+                runToSelectedBtn.style.marginLeft = "5px";
+                runToSelectedBtn.style.backgroundColor = "#FF9800";  // Orange
+                runToSelectedBtn.style.color = "white";
+                runToSelectedBtn.style.padding = "8px 16px";
+                runToSelectedBtn.style.border = "none";
+                runToSelectedBtn.style.borderRadius = "4px";
+                runToSelectedBtn.style.cursor = "pointer";
+                runToSelectedBtn.style.fontWeight = "500";
+
+                // Function to update button state based on selection
+                const updateRunToSelectedButton = () => {
+                    const selectedNodes = getSelectedSaveImageNodes();
+                    const count = selectedNodes.length;
+
+                    if (count > 0) {
+                        runToSelectedBtn.disabled = false;
+                        runToSelectedBtn.style.backgroundColor = "#FF9800";
+                        runToSelectedBtn.style.cursor = "pointer";
+                        runToSelectedBtn.textContent = `Run to Selected (${count})`;
+                        runToSelectedBtn.title = `Run workflow up to ${count} selected SaveImage node${count > 1 ? 's' : ''}`;
+                    } else {
+                        runToSelectedBtn.disabled = true;
+                        runToSelectedBtn.style.backgroundColor = "#888";
+                        runToSelectedBtn.style.cursor = "not-allowed";
+                        runToSelectedBtn.textContent = "Run to Selected";
+                        runToSelectedBtn.title = "Select SaveImage node(s) to enable";
+                    }
+                };
+
+                // Button click handler - similar to Queue on RunPod but sends to different endpoint
+                runToSelectedBtn.onclick = async () => {
+                    const selectedNodes = getSelectedSaveImageNodes();
+
+                    if (selectedNodes.length === 0) {
+                        alert("Please select at least one SaveImage node first");
+                        return;
+                    }
+
+                    try {
+                        // Disable button while processing
+                        runToSelectedBtn.disabled = true;
+                        runToSelectedBtn.textContent = "Trimming...";
+                        runToSelectedBtn.style.backgroundColor = "#888";
+
+                        // Get current workflow
+                        const prompt = await app.graphToPrompt();
+                        const workflow = prompt.output;
+
+                        // Extract node IDs
+                        const targetNodeIds = selectedNodes.map(n => n.id);
+                        console.log(`Running workflow to ${targetNodeIds.length} node(s):`, targetNodeIds);
+
+                        // Send to RunPod endpoint
+                        const response = await fetch('/runpod/queue_to_selected', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                workflow: workflow,
+                                target_node_ids: targetNodeIds
+                            })
+                        });
+
+                        const result = await response.json();
+
+                        if (!response.ok || result.status === 'error') {
+                            // Show detailed error message
+                            const errorMsg = result.message || 'Unknown error';
+                            const errorDetails = result.details || result.traceback || '';
+
+                            // Reuse error overlay pattern from Queue on RunPod
+                            alert(`Error: ${errorMsg}\n\n${errorDetails ? 'See console for details' : ''}`);
+                            if (errorDetails) {
+                                console.error('RunPod error details:', errorDetails);
+                            }
+
+                            runToSelectedBtn.disabled = false;
+                            runToSelectedBtn.textContent = "Run to Selected";
+                            updateRunToSelectedButton();
+                            return;
+                        }
+
+                        // Success - show message and start polling (reuse polling logic from Queue on RunPod)
+                        runToSelectedBtn.textContent = `Processing (${result.nodes_included}/${result.total_nodes} nodes)...`;
+
+                        // Record current time - any images modified after this are new
+                        const submissionTime = Date.now() / 1000; // Convert to seconds
+                        console.log(`RunPod: Trimmed workflow submitted at ${submissionTime}`);
+                        console.log(`RunPod: Running to ${result.num_targets} SaveImage node(s)`);
+
+                        // Poll for new images (same pattern as Queue on RunPod)
+                        const pollInterval = setInterval(async () => {
+                            try {
+                                const imagesResponse = await fetch('/runpod/latest_images');
+                                const imagesData = await imagesResponse.json();
+
+                                if (imagesData.images.length > 0) {
+                                    const latestImageTime = imagesData.images[0].modified;
+
+                                    // Check if there are new images (modified after submission)
+                                    if (latestImageTime > submissionTime) {
+                                        console.log('RunPod: New images detected!');
+                                        clearInterval(pollInterval);
+
+                                        // Get all new images and sort by node depth (deepest first = final result first)
+                                        const newImages = imagesData.images
+                                            .filter(img => img.modified > submissionTime)
+                                            .sort((a, b) => b.depth - a.depth);
+
+                                        // Save results (just filenames)
+                                        lastRunpodResults = {
+                                            filenames: newImages.map(img => img.filename),
+                                            source: "selected"
+                                        };
+
+                                        // Enable View Results button
+                                        if (typeof enableViewResults === 'function') {
+                                            enableViewResults();
+                                        }
+
+                                        // Show overlay using shared function
+                                        showImageOverlay(newImages, `✓ RunPod Results (${newImages.length} image${newImages.length !== 1 ? 's' : ''})`);
+
+                                        // Re-enable button
+                                        runToSelectedBtn.disabled = false;
+                                        updateRunToSelectedButton();
+                                    }
+                                }
+                            } catch (err) {
+                                console.error('Error polling for images:', err);
+                                clearInterval(pollInterval);
+                                runToSelectedBtn.disabled = false;
+                                updateRunToSelectedButton();
+                            }
+                        }, 3000); // Poll every 3 seconds
+
+                        // Timeout after 5 minutes
+                        setTimeout(() => {
+                            clearInterval(pollInterval);
+                            runToSelectedBtn.disabled = false;
+                            updateRunToSelectedButton();
+                        }, 300000);
+
+                    } catch (error) {
+                        console.error('Run to Selected error:', error);
+                        alert('✗ Failed to run workflow: ' + error.message);
+                        runToSelectedBtn.disabled = false;
+                        updateRunToSelectedButton();
+                    }
+                };
+
+                // Append Run to Selected button to container (before Queue on RunPod)
+                container.insertBefore(runToSelectedBtn, runpodBtn);
+
+                // Update button state periodically (ComfyUI doesn't have selection change events)
+                setInterval(updateRunToSelectedButton, 500);
+
+                // Initial state
+                updateRunToSelectedButton();
+
+                // Create "View Last Results" button
+                const viewResultsBtn = document.createElement("button");
+                viewResultsBtn.id = "runpod-view-results-button";
+                viewResultsBtn.textContent = "View Last Results";
+                viewResultsBtn.style.marginLeft = "5px";
+                viewResultsBtn.style.backgroundColor = "#9C27B0";  // Purple
+                viewResultsBtn.style.color = "white";
+                viewResultsBtn.style.padding = "8px 16px";
+                viewResultsBtn.style.border = "none";
+                viewResultsBtn.style.borderRadius = "4px";
+                viewResultsBtn.style.cursor = "pointer";
+                viewResultsBtn.style.fontWeight = "500";
+                viewResultsBtn.disabled = true;  // Initially disabled
+                viewResultsBtn.title = "No results yet - run a workflow first";
+
+                // View Results button click handler
+                viewResultsBtn.onclick = () => {
+                    if (!lastRunpodResults || lastRunpodResults.filenames.length === 0) {
+                        alert("No results available. Run a workflow first.");
+                        return;
+                    }
+
+                    // Reconstruct image objects from filenames
+                    // Images are served by ComfyUI from output/ via /view endpoint
+                    const images = lastRunpodResults.filenames.map(filename => ({
+                        filename: filename,
+                        url: `/view?filename=${filename}`
+                    }));
+
+                    const source = lastRunpodResults.source === "selected" ? "Selected Nodes" : "Full Workflow";
+                    showImageOverlay(
+                        images,
+                        `✓ Last Results - ${source} (${images.length} image${images.length !== 1 ? 's' : ''})`
+                    );
+                };
+
+                // Function to enable View Results button (called after workflow completes)
+                const enableViewResults = () => {
+                    if (lastRunpodResults && lastRunpodResults.filenames.length > 0) {
+                        viewResultsBtn.disabled = false;
+                        viewResultsBtn.style.backgroundColor = "#9C27B0";
+                        viewResultsBtn.style.cursor = "pointer";
+                        viewResultsBtn.title = `View ${lastRunpodResults.filenames.length} image(s) from last run`;
+                    }
+                };
+
+                // Append View Results button to container (before Queue on RunPod)
+                container.insertBefore(viewResultsBtn, runpodBtn);
+
+                console.log("RunPod Queue button, Worker Toggle, Run to Selected, and View Last Results added to interface");
                 return true;
             };
 

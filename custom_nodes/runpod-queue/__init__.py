@@ -117,6 +117,64 @@ def find_input_images(workflow):
     return input_images
 
 
+def get_node_dependencies(workflow, target_node_id):
+    """Recursively find all nodes that target_node_id depends on.
+
+    Args:
+        workflow: Dict mapping node_id -> node_data
+        target_node_id: ID of the target node to execute
+
+    Returns:
+        Set of node IDs (strings) that are required
+    """
+    dependencies = set()
+
+    def visit_node(node_id):
+        if node_id in dependencies:
+            return  # Already visited
+
+        node = workflow.get(str(node_id))
+        if not node:
+            return
+
+        dependencies.add(str(node_id))
+
+        # Check all inputs for node references
+        inputs = node.get('inputs', {})
+        for input_value in inputs.values():
+            # Input can be ["node_id", output_index]
+            if isinstance(input_value, list) and len(input_value) >= 2:
+                input_node_id = str(input_value[0])
+                visit_node(input_node_id)
+
+    visit_node(str(target_node_id))
+    return dependencies
+
+
+def trim_workflow(workflow, target_node_ids):
+    """Create a trimmed workflow containing only nodes necessary for targets.
+
+    Args:
+        workflow: Dict mapping node_id -> node_data
+        target_node_ids: List of target node IDs to execute
+
+    Returns:
+        Dict containing trimmed workflow
+    """
+    # Collect dependencies for all target nodes
+    all_required_nodes = set()
+    for target_node_id in target_node_ids:
+        required_nodes = get_node_dependencies(workflow, target_node_id)
+        all_required_nodes.update(required_nodes)
+
+    # Build trimmed workflow
+    trimmed = {}
+    for node_id in all_required_nodes:
+        trimmed[node_id] = workflow[node_id]
+
+    return trimmed
+
+
 @server.PromptServer.instance.routes.post('/runpod/queue')
 async def queue_on_runpod(request):
     """Handle workflow submission to RunPod.
@@ -176,6 +234,87 @@ async def queue_on_runpod(request):
         return web.json_response({
             "status": "error",
             "message": str(e)
+        }, status=500)
+
+
+@server.PromptServer.instance.routes.post('/runpod/queue_to_selected')
+async def queue_to_selected_on_runpod(request):
+    """Handle workflow submission to RunPod with trimming to target nodes.
+
+    This endpoint trims the workflow to only include nodes necessary to reach
+    the selected SaveImage nodes, saving time and cost.
+    """
+    global current_image_depths
+
+    try:
+        data = await request.json()
+        workflow = data.get('workflow', {})
+        target_node_ids = data.get('target_node_ids', [])
+
+        # Validate input
+        if not target_node_ids or not isinstance(target_node_ids, list):
+            return web.json_response({
+                "status": "error",
+                "message": "No target nodes specified or invalid format"
+            }, status=400)
+
+        # Trim workflow to include only nodes needed for targets
+        trimmed_workflow = trim_workflow(workflow, target_node_ids)
+
+        # Calculate image depths for sorting (on trimmed workflow)
+        current_image_depths = get_image_depths(trimmed_workflow)
+
+        # Save trimmed workflow to temp file
+        temp_workflow = PROJECT_ROOT / "temp_workflow_trimmed.json"
+        with open(temp_workflow, 'w') as f:
+            json.dump(trimmed_workflow, f, indent=2)
+
+        # Find all input images referenced in LoadImage nodes (in trimmed workflow)
+        input_images = find_input_images(trimmed_workflow)
+
+        # Call send-to-runpod script
+        script_path = PROJECT_ROOT / "scripts" / "send-to-runpod.py"
+        log_file = PROJECT_ROOT / "send-to-runpod.log"
+
+        # Build command with input images if any found
+        cmd = ['python3', str(script_path), '--workflow', str(temp_workflow), '--no-open']
+        if input_images:
+            cmd.extend(['--images'] + input_images)
+
+        # Run in background
+        with open(log_file, 'a') as log:
+            subprocess.Popen(
+                cmd,
+                stdout=log,
+                stderr=log,
+                cwd=str(PROJECT_ROOT)
+            )
+
+        # Build response message
+        num_nodes = len(trimmed_workflow)
+        total_nodes = len(workflow)
+        num_targets = len(target_node_ids)
+        target_label = f"{num_targets} SaveImage node{'s' if num_targets > 1 else ''}"
+        message = f"Trimmed workflow to {num_nodes}/{total_nodes} nodes. Running to {target_label}..."
+
+        if input_images:
+            message += f" (with {len(input_images)} input image(s))"
+
+        return web.json_response({
+            "status": "submitted",
+            "message": message,
+            "nodes_included": num_nodes,
+            "total_nodes": total_nodes,
+            "target_node_ids": target_node_ids,
+            "num_targets": num_targets
+        })
+
+    except Exception as e:
+        import traceback
+        return web.json_response({
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc()
         }, status=500)
 
 

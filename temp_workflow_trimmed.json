@@ -1,0 +1,40 @@
+{
+  "200": {
+    "inputs": {
+      "image": "grass_stone_row.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Top Row (Grass\u2192Stone)"
+    }
+  },
+  "211": {
+    "inputs": {
+      "filename_prefix": "debug_right_tile_stone",
+      "images": [
+        "202",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Right Tile (Stone)"
+    }
+  },
+  "202": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "x": 1024,
+      "y": 0,
+      "image": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "ImageCrop",
+    "_meta": {
+      "title": "Crop Right Half (Stone)"
+    }
+  }
+}
