@@ -158,7 +158,12 @@ def submit_workflow_to_runpod(workflow, input_image_path, timeout=1800):
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        raise RuntimeError(f"Workflow submission failed: {result.stderr}")
+        error_msg = f"Workflow submission failed (exit code {result.returncode})"
+        if result.stderr:
+            error_msg += f"\nSTDERR: {result.stderr}"
+        if result.stdout:
+            error_msg += f"\nSTDOUT: {result.stdout}"
+        raise RuntimeError(error_msg)
 
     # Find most recent output image
     # send-to-runpod.py downloads to output/ directory
@@ -174,8 +179,8 @@ def submit_workflow_to_runpod(workflow, input_image_path, timeout=1800):
     return output_files[0]
 
 
-def extract_bottom_1x2(image_2x2_path):
-    """Extract bottom 1x2 row from 2x2 workflow output.
+def extract_bottom_1x2_for_next_input(image_2x2_path):
+    """Extract bottom 1x2 row from 2x2 workflow output for next iteration input.
 
     Args:
         image_2x2_path: Path to 2048x2048 image
@@ -194,21 +199,51 @@ def extract_bottom_1x2(image_2x2_path):
     if img.size != (2048, 2048):
         raise ValueError(f"Expected 2048x2048, got {img.size}")
 
-    # Crop bottom 1024 pixels
+    # Crop bottom 1024 pixels for next iteration's input
     bottom_1x2 = img.crop((0, 1024, 2048, 2048))
 
     return bottom_1x2
 
 
-def composite_accumulated_grid(previous_grid_path, new_row_image):
-    """Composite new row onto accumulated grid.
+def extract_bottom_2x2_for_accumulation(image_2x2_path):
+    """Extract full 2x2 from workflow output for accumulation.
+
+    The workflow blends both rows together, so we need to keep both rows
+    (all 4 tiles) to preserve the blended seams.
+
+    Args:
+        image_2x2_path: Path to 2048x2048 image
+
+    Returns:
+        PIL Image of full 2048x2048
+
+    Raises:
+        ValueError: If image dimensions are incorrect
+    """
+    from PIL import Image
+
+    img = Image.open(image_2x2_path)
+
+    # Verify dimensions
+    if img.size != (2048, 2048):
+        raise ValueError(f"Expected 2048x2048, got {img.size}")
+
+    return img
+
+
+def composite_accumulated_grid(previous_grid_path, new_2x2_blended):
+    """Composite new blended 2x2 onto accumulated grid.
 
     NOTE: Do not call this for the first iteration (iteration 0).
     For iteration 0, use the full 2x2 workflow output directly as the accumulated grid.
 
+    The workflow blends the seam between both rows in the 2x2 output. We need to:
+    1. Remove the last unblended row from the previous accumulated grid
+    2. Paste the new blended 2x2 (which contains the blended version of that row + the new row)
+
     Args:
         previous_grid_path: Path to previous accumulated grid (must not be None)
-        new_row_image: PIL Image of new 1x2 row (2048x1024)
+        new_2x2_blended: PIL Image of new 2x2 with blended seams (2048x2048)
 
     Returns:
         PIL Image of new accumulated grid
@@ -218,17 +253,20 @@ def composite_accumulated_grid(previous_grid_path, new_row_image):
     # Load previous grid
     previous_grid = Image.open(previous_grid_path)
 
-    # Create new canvas
+    # Remove the last 1024px (unblended row) from previous grid
     prev_height = previous_grid.size[1]
-    new_height = prev_height + 1024
+    previous_grid_trimmed = previous_grid.crop((0, 0, 2048, prev_height - 1024))
+
+    # Create new canvas: trimmed previous grid + new 2048px
+    new_height = (prev_height - 1024) + 2048
 
     accumulated = Image.new('RGB', (2048, new_height))
 
-    # Paste previous grid at top
-    accumulated.paste(previous_grid, (0, 0))
+    # Paste trimmed previous grid at top
+    accumulated.paste(previous_grid_trimmed, (0, 0))
 
-    # Paste new row at bottom
-    accumulated.paste(new_row_image, (0, prev_height))
+    # Paste new blended 2x2 at bottom
+    accumulated.paste(new_2x2_blended, (0, prev_height - 1024))
 
     return accumulated
 
@@ -342,16 +380,17 @@ def generate_texture_grid(
         # Load the 2x2 output
         workflow_output_2x2_img = Image.open(workflow_output_2x2_path)
 
-        # Extract bottom 1x2 for next iteration
-        bottom_1x2_img = extract_bottom_1x2(workflow_output_2x2_path)
+        # Extract bottom 1x2 for next iteration's input
+        bottom_1x2_img = extract_bottom_1x2_for_next_input(workflow_output_2x2_path)
 
         # Build accumulated grid
         if accumulated_grid_path is None:
             # First iteration: use full 2x2 workflow output
             accumulated_grid_img = workflow_output_2x2_img
         else:
-            # Subsequent iterations: composite new row onto previous grid
-            accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, bottom_1x2_img)
+            # Subsequent iterations: composite new blended 2x2 onto previous grid
+            # This replaces the unblended last row with the blended version
+            accumulated_grid_img = composite_accumulated_grid(accumulated_grid_path, workflow_output_2x2_img)
 
         # Save iteration outputs
         paths = save_iteration_outputs(

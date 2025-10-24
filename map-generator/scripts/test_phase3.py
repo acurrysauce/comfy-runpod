@@ -14,7 +14,8 @@ from PIL import Image, ImageDraw
 
 # Import the functions we're testing
 from extend_texture_down import (
-    extract_bottom_1x2,
+    extract_bottom_1x2_for_next_input,
+    extract_bottom_2x2_for_accumulation,
     composite_accumulated_grid,
     save_iteration_outputs
 )
@@ -41,8 +42,8 @@ def create_test_image_1x2(color):
 
 
 def test_extract_bottom_1x2():
-    """Test extract_bottom_1x2() function."""
-    print("Testing extract_bottom_1x2()...")
+    """Test extract_bottom_1x2_for_next_input() function."""
+    print("Testing extract_bottom_1x2_for_next_input()...")
 
     with tempfile.TemporaryDirectory() as tmpdir:
         # Create test image
@@ -51,7 +52,7 @@ def test_extract_bottom_1x2():
         test_img.save(test_path)
 
         # Extract bottom 1x2
-        bottom_1x2 = extract_bottom_1x2(test_path)
+        bottom_1x2 = extract_bottom_1x2_for_next_input(test_path)
 
         # Verify dimensions
         assert bottom_1x2.size == (2048, 1024), f"Expected (2048, 1024), got {bottom_1x2.size}"
@@ -69,43 +70,43 @@ def test_composite_accumulated_grid():
     print("\nTesting composite_accumulated_grid()...")
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Create previous grid (red, 2048x1024)
-        previous_grid = create_test_image_1x2((255, 0, 0))
+        # Simulate iteration 0: previous grid is 2048x2048 (rows 0-1)
+        # Row 0 = red, Row 1 = green (unblended)
+        previous_grid = Image.new('RGB', (2048, 2048))
+        draw = ImageDraw.Draw(previous_grid)
+        draw.rectangle([(0, 0), (2048, 1024)], fill=(255, 0, 0))  # Row 0: red
+        draw.rectangle([(0, 1024), (2048, 2048)], fill=(0, 255, 0))  # Row 1: green (unblended)
         previous_path = Path(tmpdir) / "previous.png"
         previous_grid.save(previous_path)
 
-        # Create new row (blue, 2048x1024)
-        new_row = create_test_image_1x2((0, 0, 255))
+        # Simulate iteration 1: new 2x2 output has blended row 1 + new row 2
+        # Row 1 = blue (blended), Row 2 = yellow
+        new_2x2 = Image.new('RGB', (2048, 2048))
+        draw = ImageDraw.Draw(new_2x2)
+        draw.rectangle([(0, 0), (2048, 1024)], fill=(0, 0, 255))  # Row 1: blue (blended)
+        draw.rectangle([(0, 1024), (2048, 2048)], fill=(255, 255, 0))  # Row 2: yellow
 
         # Composite
-        accumulated = composite_accumulated_grid(previous_path, new_row)
+        accumulated = composite_accumulated_grid(previous_path, new_2x2)
 
-        # Verify dimensions
-        assert accumulated.size == (2048, 2048), f"Expected (2048, 2048), got {accumulated.size}"
+        # Verify dimensions: (2048-1024) + 2048 = 3072
+        assert accumulated.size == (2048, 3072), f"Expected (2048, 3072), got {accumulated.size}"
 
-        # Verify top half is red (previous grid)
-        top_pixel = accumulated.getpixel((1024, 512))
-        assert top_pixel == (255, 0, 0), f"Expected red pixel at top, got {top_pixel}"
+        # Verify row 0 is still red (from previous grid)
+        row0_pixel = accumulated.getpixel((1024, 512))
+        assert row0_pixel == (255, 0, 0), f"Expected red at row 0, got {row0_pixel}"
 
-        # Verify bottom half is blue (new row)
-        bottom_pixel = accumulated.getpixel((1024, 1536))
-        assert bottom_pixel == (0, 0, 255), f"Expected blue pixel at bottom, got {bottom_pixel}"
+        # Verify row 1 is now blue (blended, from new 2x2)
+        row1_pixel = accumulated.getpixel((1024, 1024 + 512))
+        assert row1_pixel == (0, 0, 255), f"Expected blue at row 1, got {row1_pixel}"
 
-        print("  ✓ Correctly composites new row onto previous grid")
-        print("  ✓ Output dimensions: 2048x2048 (from 2048x1024 + 2048x1024)")
+        # Verify row 2 is yellow (from new 2x2)
+        row2_pixel = accumulated.getpixel((1024, 2048 + 512))
+        assert row2_pixel == (255, 255, 0), f"Expected yellow at row 2, got {row2_pixel}"
 
-        # Test with taller previous grid (2048x2048)
-        taller_previous = create_test_image_1x2((0, 255, 0))
-        taller_previous = taller_previous.resize((2048, 2048))
-        taller_path = Path(tmpdir) / "taller_previous.png"
-        taller_previous.save(taller_path)
-
-        # Composite another row
-        accumulated2 = composite_accumulated_grid(taller_path, new_row)
-
-        # Verify dimensions
-        assert accumulated2.size == (2048, 3072), f"Expected (2048, 3072), got {accumulated2.size}"
-        print("  ✓ Correctly handles taller grids (2048x2048 + 2048x1024 → 2048x3072)")
+        print("  ✓ Correctly removes unblended row and composites new blended 2x2")
+        print("  ✓ Output dimensions: 2048x3072 (trimmed 2048x1024 + new 2048x2048)")
+        print("  ✓ Preserves row 0, replaces row 1 with blended version, adds row 2")
 
 
 def test_save_iteration_outputs():
