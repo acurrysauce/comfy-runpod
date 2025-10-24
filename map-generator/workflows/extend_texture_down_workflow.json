@@ -6,7 +6,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Load Top Row (Grass→Stone)"
+      "title": "Load Top Row (Grass\u2192Stone)"
     }
   },
   "201": {
@@ -146,7 +146,7 @@
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Outpaint Left Column (Grass→Stone)"
+      "title": "Outpaint Left Column (Grass\u2192Stone)"
     }
   },
   "223": {
@@ -413,7 +413,7 @@
     },
     "class_type": "KSampler",
     "_meta": {
-      "title": "Outpaint Right Column (Stone→Grass)"
+      "title": "Outpaint Right Column (Stone\u2192Grass)"
     }
   },
   "233": {
@@ -703,10 +703,6 @@
   },
   "302b": {
     "inputs": {
-      "image": [
-        "240",
-        0
-      ],
       "mask": [
         "302",
         0
