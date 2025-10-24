@@ -121,12 +121,13 @@ def update_input_image(workflow, image_filename):
     return workflow
 
 
-def submit_workflow_to_runpod(workflow, input_image_path):
+def submit_workflow_to_runpod(workflow, input_image_path, timeout=1800):
     """Submit workflow to RunPod and wait for completion.
 
     Args:
         workflow: Updated workflow dict
         input_image_path: Path to input 1x2 image file (2048x1024)
+        timeout: Timeout in seconds (default: 1800 = 30 minutes for first run with model loading)
 
     Returns:
         Path to downloaded 2x2 output image (2048x2048)
@@ -145,7 +146,8 @@ def submit_workflow_to_runpod(workflow, input_image_path):
         'scripts/send-to-runpod.py',
         '--workflow', str(workflow_path),
         '--images', str(input_image_path),
-        '--no-open'
+        '--no-open',
+        '--timeout', str(timeout)
     ]
 
     # Run and wait for completion
@@ -268,7 +270,8 @@ def generate_texture_grid(
     initial_image_path,
     workflow_template,
     prompts_config,
-    output_base_dir
+    output_base_dir,
+    timeout=1800
 ):
     """Main generator loop: iteratively extend texture downward to build Nx2 grid.
 
@@ -278,6 +281,7 @@ def generate_texture_grid(
         workflow_template: Loaded workflow dict
         prompts_config: Loaded prompts config
         output_base_dir: Base directory for outputs
+        timeout: RunPod timeout in seconds (default: 1800)
 
     Returns:
         Path to final accumulated grid
@@ -327,8 +331,8 @@ def generate_texture_grid(
         workflow = update_input_image(workflow, current_input_path.name)
 
         # Submit to RunPod
-        print(f"  ⏳ Submitting to RunPod...")
-        workflow_output_2x2_path = submit_workflow_to_runpod(workflow, current_input_path)
+        print(f"  ⏳ Submitting to RunPod (timeout: {timeout}s)...")
+        workflow_output_2x2_path = submit_workflow_to_runpod(workflow, current_input_path, timeout)
         print(f"  ✓ Workflow complete: {workflow_output_2x2_path}")
 
         # Load the 2x2 output
@@ -375,7 +379,7 @@ def generate_texture_grid(
     return final_output
 
 
-def generate_from_grid_config(config_path, workflow_template, prompts_config, output_base_dir):
+def generate_from_grid_config(config_path, workflow_template, prompts_config, output_base_dir, timeout=1800):
     """Generate texture grid from JSON config file.
 
     Args:
@@ -383,6 +387,7 @@ def generate_from_grid_config(config_path, workflow_template, prompts_config, ou
         workflow_template: Loaded workflow dict
         prompts_config: Loaded prompts config
         output_base_dir: Base directory for outputs
+        timeout: RunPod timeout in seconds (default: 1800)
 
     Returns:
         Path to final accumulated grid
@@ -415,7 +420,8 @@ def generate_from_grid_config(config_path, workflow_template, prompts_config, ou
         initial_image,
         workflow_template,
         prompts_config,
-        output_base_dir
+        output_base_dir,
+        timeout
     )
 
 
@@ -505,6 +511,12 @@ Examples:
         default=None,
         help='Path to prompts config JSON (default: config/tile_prompts.json)'
     )
+    parser.add_argument(
+        '--timeout',
+        type=int,
+        default=1800,
+        help='RunPod timeout in seconds (default: 1800 = 30 min for first run with model loading)'
+    )
 
     args = parser.parse_args()
 
@@ -536,7 +548,8 @@ Examples:
                 args.config,
                 workflow_template,
                 prompts_config,
-                args.output
+                args.output,
+                args.timeout
             )
         else:
             # Pattern mode
@@ -546,7 +559,8 @@ Examples:
                 args.initial_image,
                 workflow_template,
                 prompts_config,
-                args.output
+                args.output,
+                args.timeout
             )
 
         print(f"\n🎉 Success! Final grid saved to: {final_output}")
