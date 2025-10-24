@@ -140,10 +140,14 @@ def submit_workflow_to_runpod(workflow, input_image_path, timeout=1800):
     with open(workflow_path, 'w') as f:
         json.dump(workflow, f, indent=2)
 
-    # Call send-to-runpod.py
+    # Call send-to-runpod.py (in project root scripts/ directory)
+    script_dir = Path(__file__).parent
+    project_root = script_dir.parent.parent
+    send_to_runpod_script = project_root / 'scripts' / 'send-to-runpod.py'
+
     cmd = [
         'python3',
-        'scripts/send-to-runpod.py',
+        str(send_to_runpod_script),
         '--workflow', str(workflow_path),
         '--images', str(input_image_path),
         '--no-open',
