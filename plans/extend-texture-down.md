@@ -9,6 +9,8 @@ Create a Python script that parameterizes the `checkerboard_phase3_bottom_blend_
 - Parameterize tile types and their prompts (any combination of types)
 - Support 3 different transition prompts (left vertical, right vertical, horizontal)
 - Store all prompts and models in a JSON configuration file
+- **Store complete grid layouts in a grid configuration JSON**
+- **Support both grid config file mode and CLI pattern mode**
 - Create a reusable script for generating texture maps
 
 **Use Case Examples:**
@@ -39,7 +41,9 @@ Create a Python script that parameterizes the `checkerboard_phase3_bottom_blend_
 
 ### Data Flow
 ```
-JSON Config (tile_prompts.json)
+Grid Config (my_map.json) ──┐
+                              ├→ Orchestration Function
+Tile Prompts (tile_prompts.json) ─┘
     ↓
 Python Script (extend_texture_down.py)
     ↓
@@ -61,7 +65,10 @@ Final [nx2] Grid
 /home/acurry/comfy-runpod/
 └── map-generator/
     ├── config/
-    │   └── tile_prompts.json
+    │   ├── tile_prompts.json          (tile definitions & transitions)
+    │   ├── example_map_simple.json    (grid config example)
+    │   ├── example_map_complex.json   (grid config example)
+    │   └── my_custom_map.json         (user grid configs)
     ├── scripts/
     │   └── extend_texture_down.py
     ├── workflows/
@@ -165,10 +172,12 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 - Verify all nodes have valid connections
 - Test workflow submission (should produce identical output to original)
 
-### Phase 1: Extract Prompts and Create JSON Config
+### Phase 1: Extract Prompts and Create JSON Configs
 
 **Files to create:**
 - `map-generator/config/tile_prompts.json` - All prompts and models
+- `map-generator/config/example_map_simple.json` - Example grid config
+- `map-generator/config/example_map_complex.json` - Complex grid config example
 
 **Implementation:**
 
@@ -226,11 +235,63 @@ cp workflows/checkerboard_phase3_bottom_blend_api.json \
 
 **Note:** Same-to-same transitions (grass_to_grass, stone_to_stone) use simplified prompts since there's no material change.
 
+3. **Design grid configuration JSON structure:**
+
+**Simple example (`example_map_simple.json`):**
+```json
+{
+  "name": "Simple Alternating Grass-Stone Map",
+  "description": "4x2 grid alternating between grass and stone",
+  "initial_image": "input/grass_stone_initial.png",
+  "grid": [
+    ["grass", "stone"],
+    ["stone", "grass"],
+    ["grass", "stone"],
+    ["stone", "grass"]
+  ]
+}
+```
+
+**Complex example (`example_map_complex.json`):**
+```json
+{
+  "name": "Multi-Terrain Map",
+  "description": "Large varied terrain with multiple tile types",
+  "initial_image": "input/dirt_sand_initial.png",
+  "grid": [
+    ["dirt", "sand"],
+    ["grass", "stone"],
+    ["stone", "stone"],
+    ["grass", "grass"],
+    ["dirt", "grass"],
+    ["stone", "sand"],
+    ["sand", "dirt"]
+  ],
+  "metadata": {
+    "created": "2025-01-24",
+    "author": "user",
+    "tile_size_px": 1024,
+    "total_dimensions": "2048x7168"
+  }
+}
+```
+
+**Grid Config Specification:**
+- `name` (string, required): Human-readable name for this map
+- `description` (string, optional): Description of the map
+- `initial_image` (string, required): Path to initial 1x2 image (relative to project root)
+- `grid` (array, required): Array of [left, right] tile type pairs, one per row
+  - First row: Describes the initial image content (for validation)
+  - Subsequent rows: What to generate
+- `metadata` (object, optional): Additional metadata
+
 **Testing:**
 - Validate JSON syntax
 - Verify all prompts match workflow exactly
 - Test loading JSON in Python
 - Verify all required transition combinations exist
+- Validate grid config structure
+- Test that grid tiles reference existing tile types
 
 ### Phase 2: Create Workflow Update Functions
 
@@ -459,7 +520,67 @@ def wait_for_output(output_prefix, output_dir, timeout=300):
 
 **Implementation:**
 
-1. **Create main generator function:**
+1. **Create grid config orchestration function:**
+```python
+def generate_from_grid_config(
+    grid_config_path,
+    prompts_config_path,
+    workflow_template_path,
+    output_dir
+):
+    """Generate texture grid from a grid configuration file.
+
+    This is the high-level orchestration function that reads a complete
+    grid specification and calls the lower-level iteration function.
+
+    Args:
+        grid_config_path: Path to grid config JSON (e.g., my_map.json)
+        prompts_config_path: Path to tile prompts JSON
+        workflow_template_path: Path to workflow template
+        output_dir: Directory for outputs
+
+    Returns:
+        Path to final output image
+    """
+    # Load grid configuration
+    with open(grid_config_path, 'r') as f:
+        grid_config = json.load(f)
+
+    # Extract parameters
+    grid = grid_config["grid"]
+    num_rows = len(grid)
+    initial_image = Path(grid_config["initial_image"])
+
+    # Convert grid to tile pattern format
+    tile_pattern = [(row[0], row[1]) for row in grid]
+
+    # Validate initial image exists
+    if not initial_image.exists():
+        raise FileNotFoundError(f"Initial image not found: {initial_image}")
+
+    # Log grid info
+    print(f"=== Grid Configuration: {grid_config.get('name', 'Unnamed')} ===")
+    if 'description' in grid_config:
+        print(f"Description: {grid_config['description']}")
+    print(f"Total rows: {num_rows}")
+    print(f"Grid layout:")
+    for i, (left, right) in enumerate(tile_pattern):
+        marker = "→" if i == 0 else " "
+        print(f"  {marker} Row {i}: [{left:10s}, {right:10s}]")
+    print()
+
+    # Call the main generator
+    return generate_texture_grid(
+        num_rows=num_rows,
+        initial_image=initial_image,
+        tile_pattern=tile_pattern,
+        prompts_config_path=prompts_config_path,
+        workflow_template_path=workflow_template_path,
+        output_dir=output_dir
+    )
+```
+
+2. **Create main generator function (handles 4 tiles at a time):**
 ```python
 def generate_texture_grid(
     num_rows,
@@ -551,7 +672,7 @@ def generate_texture_grid(
     return outputs[-1]
 ```
 
-2. **Create CLI interface:**
+3. **Create CLI interface with dual modes:**
 ```python
 def parse_tile_pattern(pattern_str):
     """Parse tile pattern from string.
@@ -583,26 +704,40 @@ def parse_tile_pattern(pattern_str):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate nx2 tile grids by extending textures downward"
+        description="Generate nx2 tile grids by extending textures downward",
+        epilog="""
+Examples:
+  # Grid config mode (recommended for complex layouts):
+  %(prog)s --grid-config config/my_map.json
+
+  # CLI pattern mode (quick testing):
+  %(prog)s --rows 5 --input input/start.png --pattern "grass,stone"
+        """
     )
+
+    # Mode selection (mutually exclusive)
+    mode_group = parser.add_mutually_exclusive_group(required=True)
+    mode_group.add_argument(
+        '--grid-config', '-g',
+        type=Path,
+        help='Path to grid configuration JSON (contains grid, initial image, etc.)'
+    )
+    mode_group.add_argument(
+        '--pattern', '-p',
+        type=str,
+        help='Tile pattern for CLI mode: "left,right" for alternating or "left,right;left,right;..." for explicit'
+    )
+
+    # CLI pattern mode arguments (only used when --pattern is specified)
     parser.add_argument(
         '--rows', '-n',
         type=int,
-        required=True,
-        help='Number of rows in output grid (including initial row)'
+        help='Number of rows in output grid (required with --pattern)'
     )
     parser.add_argument(
         '--input', '-i',
         type=Path,
-        required=True,
-        help='Path to initial 1x2 image (e.g., grass_stone_row.png)'
-    )
-    parser.add_argument(
-        '--pattern', '-p',
-        type=str,
-        required=True,
-        help='Tile pattern: "left,right" for alternating or "left,right;left,right;..." for explicit. '
-             'Example: "grass,stone" or "grass,stone;stone,grass;grass,stone"'
+        help='Path to initial 1x2 image (required with --pattern)'
     )
     parser.add_argument(
         '--prompts',
@@ -625,11 +760,12 @@ def main():
 
     args = parser.parse_args()
 
-    # Validate inputs
-    if not args.input.exists():
-        print(f"Error: Input image not found: {args.input}")
+    # Validate mode-specific arguments
+    if args.pattern and (not args.rows or not args.input):
+        print("Error: --pattern mode requires --rows and --input")
         sys.exit(1)
 
+    # Validate common configs exist
     if not args.prompts.exists():
         print(f"Error: Prompts config not found: {args.prompts}")
         sys.exit(1)
@@ -638,33 +774,59 @@ def main():
         print(f"Error: Workflow template not found: {args.template}")
         sys.exit(1)
 
-    # Parse tile pattern
-    pattern = parse_tile_pattern(args.pattern)
-    if callable(pattern):
-        # Generate alternating pattern
-        tile_pattern = pattern(args.rows)
-    else:
-        # Use explicit pattern
-        tile_pattern = pattern
-        if len(tile_pattern) != args.rows:
-            print(f"Error: Pattern has {len(tile_pattern)} rows but --rows is {args.rows}")
-            sys.exit(1)
-
-    print(f"Tile pattern:")
-    for i, (left, right) in enumerate(tile_pattern):
-        print(f"  Row {i}: [{left}, {right}]")
-
-    # Generate grid
+    # Execute based on mode
     try:
-        final_output = generate_texture_grid(
-            num_rows=args.rows,
-            initial_image=args.input,
-            tile_pattern=tile_pattern,
-            prompts_config_path=args.prompts,
-            workflow_template_path=args.template,
-            output_dir=args.output_dir
-        )
-        print(f"\\nSuccess! Final output: {final_output}")
+        if args.grid_config:
+            # Grid config mode
+            if not args.grid_config.exists():
+                print(f"Error: Grid config not found: {args.grid_config}")
+                sys.exit(1)
+
+            print(f"=== Grid Config Mode ===")
+            print(f"Loading: {args.grid_config}")
+            final_output = generate_from_grid_config(
+                grid_config_path=args.grid_config,
+                prompts_config_path=args.prompts,
+                workflow_template_path=args.template,
+                output_dir=args.output_dir
+            )
+        else:
+            # CLI pattern mode
+            print(f"=== CLI Pattern Mode ===")
+
+            # Validate input image
+            if not args.input.exists():
+                print(f"Error: Input image not found: {args.input}")
+                sys.exit(1)
+
+            # Parse tile pattern
+            pattern = parse_tile_pattern(args.pattern)
+            if callable(pattern):
+                # Generate alternating pattern
+                tile_pattern = pattern(args.rows)
+            else:
+                # Use explicit pattern
+                tile_pattern = pattern
+                if len(tile_pattern) != args.rows:
+                    print(f"Error: Pattern has {len(tile_pattern)} rows but --rows is {args.rows}")
+                    sys.exit(1)
+
+            print(f"Tile pattern:")
+            for i, (left, right) in enumerate(tile_pattern):
+                print(f"  Row {i}: [{left}, {right}]")
+
+            # Generate grid
+            final_output = generate_texture_grid(
+                num_rows=args.rows,
+                initial_image=args.input,
+                tile_pattern=tile_pattern,
+                prompts_config_path=args.prompts,
+                workflow_template_path=args.template,
+                output_dir=args.output_dir
+            )
+
+        print(f"\\n=== Success! ===")
+        print(f"Final output: {final_output}")
     except Exception as e:
         print(f"\\nError: {e}")
         import traceback
@@ -676,11 +838,17 @@ if __name__ == "__main__":
 ```
 
 **Testing:**
-- Generate 2x2 grid (1 iteration)
-- Generate 3x2 grid (2 iterations)
-- Generate 5x2 grid (4 iterations)
-- Test with different tile type combinations
-- Verify pattern alternation is correct
+- **Grid config mode:**
+  - Test with example_map_simple.json
+  - Test with example_map_complex.json
+  - Verify grid is loaded correctly
+  - Verify tile pattern extracted correctly
+- **CLI pattern mode:**
+  - Generate 2x2 grid (1 iteration)
+  - Generate 3x2 grid (2 iterations)
+  - Generate 5x2 grid (4 iterations)
+  - Test with different tile type combinations
+  - Verify pattern alternation is correct
 
 ### Phase 5: Add Error Handling and Validation
 
@@ -727,11 +895,11 @@ def validate_prompts_config(config, required_types):
 
 2. **Add progress tracking:**
 ```python
-def generate_checkerboard(...):
+def generate_texture_grid(...):
     # ... (beginning of function)
 
     # Create progress file
-    progress_file = output_dir / "checkerboard_generation_progress.json"
+    progress_file = output_dir / "extend_texture_progress.json"
     progress = {
         "total_rows": num_rows,
         "completed_iterations": 0,
@@ -933,10 +1101,32 @@ This way we're always extending the bottom row downward.
 └── output/
     ├── phase3_bottom_center_blended_00001_.png
     ├── phase3_bottom_center_blended_00002_.png
-    └── checkerboard_generation_progress.json
+    └── extend_texture_progress.json
 ```
 
 ## Example Usage
+
+### Grid Config Mode (Recommended)
+
+```bash
+# Generate from a grid configuration file
+python map-generator/scripts/extend_texture_down.py \
+    --grid-config map-generator/config/my_custom_map.json
+
+# Use example configurations
+python map-generator/scripts/extend_texture_down.py \
+    --grid-config map-generator/config/example_map_simple.json
+
+python map-generator/scripts/extend_texture_down.py \
+    --grid-config map-generator/config/example_map_complex.json
+
+# Use custom prompts file with grid config
+python map-generator/scripts/extend_texture_down.py \
+    --grid-config map-generator/config/my_map.json \
+    --prompts map-generator/config/custom_prompts.json
+```
+
+### CLI Pattern Mode (Quick Testing)
 
 ```bash
 # Generate 5x2 alternating pattern (grass/stone swap each row)
