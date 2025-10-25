@@ -1,0 +1,11 @@
+{
+  "name": "Simple Alternating Grass-Stone Map",
+  "description": "4x2 grid alternating between grass and stone",
+  "initial_image": "input/grass_stone_initial.png",
+  "grid": [
+    ["grass", "stone"],
+    ["stone", "grass"],
+    ["grass", "stone"],
+    ["stone", "grass"]
+  ]
+}

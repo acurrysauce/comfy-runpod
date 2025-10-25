@@ -1,0 +1,25 @@
+{
+  "name": "Varied Transitions Map",
+  "description": "6x2 grid with all transition types: grass→grass, stone→stone, grass→stone, stone→grass",
+  "initial_image": "input/grass_stone_initial.png",
+  "grid": [
+    ["grass", "stone"],
+    ["grass", "stone"],
+    ["stone", "grass"],
+    ["stone", "stone"],
+    ["grass", "grass"],
+    ["stone", "grass"]
+  ],
+  "metadata": {
+    "transitions_tested": [
+      "Row 0→1: grass→grass (left), stone→stone (right)",
+      "Row 1→2: grass→stone (left), stone→grass (right)",
+      "Row 2→3: stone→stone (left), grass→stone (right)",
+      "Row 3→4: stone→grass (left), stone→grass (right)",
+      "Row 4→5: grass→stone (left), grass→grass (right)"
+    ],
+    "created": "2025-01-24",
+    "tile_size_px": 1024,
+    "total_dimensions": "2048x6144"
+  }
+}

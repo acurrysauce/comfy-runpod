@@ -1,0 +1,41 @@
+{
+  "tile_types": {
+    "grass": {
+      "positive": "hand painted grass texture, stylized grass patch, painted grass clumps, green grass tufts, varied grass colors, light and dark green grass, painterly grass texture, game texture, top-down flat view, seamless, textured grass surface",
+      "negative": "blurry, low quality, photorealistic, 3d render, realistic grass blades, detailed grass strands, individual blades, modern brick wall",
+      "lora": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "lora_strength_model": 0.6,
+      "lora_strength_clip": 0.6
+    },
+    "stone": {
+      "positive": "hand painted stone floor texture, light grey medieval stone blocks, pale grey cobblestone pavement, square cut stone tiles, clean light stone, castle courtyard floor, fantasy game texture, top-down flat view, light grey and pale beige stones, simple painted blocks, artisan stonework, seamless",
+      "negative": "blurry, low quality, photorealistic, modern brick wall, grout lines, uniform tiles, polished surface, shiny, pristine, grass, plants, dirt, mud, green, dark grey, dark brown, black rocks",
+      "lora": "Hand-Painted_2d_Seamless_Textures-000007.safetensors",
+      "lora_strength_model": 0.6,
+      "lora_strength_clip": 0.6
+    }
+  },
+  "transitions": {
+    "grass_to_stone": {
+      "positive": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "negative": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change"
+    },
+    "stone_to_grass": {
+      "positive": "natural transition between stone and grass, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "negative": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change"
+    },
+    "grass_to_grass": {
+      "positive": "seamless grass texture continuation, uniform grass pattern, consistent grass coverage, smooth grass blend, hand painted game texture",
+      "negative": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change"
+    },
+    "stone_to_stone": {
+      "positive": "seamless stone texture continuation, uniform stone pattern, consistent stone coverage, smooth stone blend, hand painted game texture",
+      "negative": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change"
+    }
+  },
+  "global": {
+    "base_checkpoint": "sd_xl_base_1.0.safetensors",
+    "inpaint_checkpoint": "sd_xl_base_1.0_inpainting_0.1.safetensors",
+    "vae": "sdxl_vae.safetensors"
+  }
+}

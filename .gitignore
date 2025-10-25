@@ -78,3 +78,5 @@ Thumbs.db
 # Temporary workflow files
 temp_workflow.json
 docker/temp_workflow.json
+temp_extend_texture_workflow.json
+*.Zone.Identifier
