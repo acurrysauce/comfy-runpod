@@ -1,910 +1,11 @@
 {
-  "200": {
+  "1": {
     "inputs": {
-      "image": "grass_stone_row.png",
-      "upload": "image"
+      "ckpt_name": "sd_xl_base_1.0.safetensors"
     },
-    "class_type": "LoadImage",
+    "class_type": "CheckpointLoaderSimple",
     "_meta": {
-      "title": "Load Top Row (Grass\u2192Stone)"
-    }
-  },
-  "201": {
-    "inputs": {
-      "width": 1024,
-      "height": 1024,
-      "x": 0,
-      "y": 0,
-      "image": [
-        "200",
-        0
-      ]
-    },
-    "class_type": "ImageCrop",
-    "_meta": {
-      "title": "Crop Left Half (Grass)"
-    }
-  },
-  "202": {
-    "inputs": {
-      "width": 1024,
-      "height": 1024,
-      "x": 1024,
-      "y": 0,
-      "image": [
-        "200",
-        0
-      ]
-    },
-    "class_type": "ImageCrop",
-    "_meta": {
-      "title": "Crop Right Half (Stone)"
-    }
-  },
-  "210": {
-    "inputs": {
-      "filename_prefix": "debug_left_tile_grass",
-      "images": [
-        "201",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Debug - Left Tile (Grass)"
-    }
-  },
-  "211": {
-    "inputs": {
-      "filename_prefix": "debug_right_tile_stone",
-      "images": [
-        "202",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Debug - Right Tile (Stone)"
-    }
-  },
-  "220": {
-    "inputs": {
-      "left": 0,
-      "top": 0,
-      "right": 0,
-      "bottom": 1024,
-      "feathering": 0,
-      "image": [
-        "201",
-        0
-      ]
-    },
-    "class_type": "ImagePadForOutpaint",
-    "_meta": {
-      "title": "Pad Left Tile Down 1024px"
-    }
-  },
-  "220a": {
-    "inputs": {
-      "grow": 0,
-      "blur": 128,
-      "mask": [
-        "220",
-        1
-      ]
-    },
-    "class_type": "INPAINT_ExpandMask",
-    "_meta": {
-      "title": "Blur Left Outpaint Mask"
-    }
-  },
-  "221": {
-    "inputs": {
-      "grow_mask_by": 12,
-      "pixels": [
-        "220",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "220a",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Encode for Left Outpaint"
-    }
-  },
-  "222": {
-    "inputs": {
-      "seed": 44,
-      "steps": 25,
-      "cfg": 7.5,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1,
-      "model": [
-        "401",
-        0
-      ],
-      "positive": [
-        "50",
-        0
-      ],
-      "negative": [
-        "51",
-        0
-      ],
-      "latent_image": [
-        "221",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "Outpaint Left Column (Grass\u2192Stone)"
-    }
-  },
-  "223": {
-    "inputs": {
-      "samples": [
-        "222",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Decode Left Column"
-    }
-  },
-  "224": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "220",
-        0
-      ],
-      "source": [
-        "223",
-        0
-      ],
-      "mask": [
-        "220",
-        1
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Composite Left Column"
-    }
-  },
-  "226": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 0,
-      "y": 896,
-      "width": 1024,
-      "height": 256,
-      "image_width": 1024,
-      "image_height": 2048
-    },
-    "class_type": "Create Rect Mask",
-    "_meta": {
-      "title": "Left Column - Horizontal Seam Mask"
-    }
-  },
-  "227": {
-    "inputs": {
-      "method": "intensity",
-      "image": [
-        "226",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Left Column - Convert to Mask"
-    }
-  },
-  "228": {
-    "inputs": {
-      "grow": 0,
-      "blur": 128,
-      "mask": [
-        "227",
-        0
-      ]
-    },
-    "class_type": "INPAINT_ExpandMask",
-    "_meta": {
-      "title": "Left Column - Blur Seam Mask"
-    }
-  },
-  "229": {
-    "inputs": {
-      "grow_mask_by": 12,
-      "pixels": [
-        "224",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "228",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Left Column - Encode Seam Blend"
-    }
-  },
-  "229a": {
-    "inputs": {
-      "seed": 144,
-      "steps": 40,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 0.85,
-      "model": [
-        "401",
-        0
-      ],
-      "positive": [
-        "103",
-        0
-      ],
-      "negative": [
-        "104",
-        0
-      ],
-      "latent_image": [
-        "229",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "Left Column - Blend Seam"
-    }
-  },
-  "229b": {
-    "inputs": {
-      "samples": [
-        "229a",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Left Column - Decode Blended Seam"
-    }
-  },
-  "229c": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "224",
-        0
-      ],
-      "source": [
-        "229b",
-        0
-      ],
-      "mask": [
-        "228",
-        0
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Left Column - Composite Blended Seam"
-    }
-  },
-  "225": {
-    "inputs": {
-      "filename_prefix": "debug_left_column_outpainted",
-      "images": [
-        "229c",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Debug - Left Column (1024x2048)"
-    }
-  },
-  "230": {
-    "inputs": {
-      "left": 0,
-      "top": 0,
-      "right": 0,
-      "bottom": 1024,
-      "feathering": 0,
-      "image": [
-        "202",
-        0
-      ]
-    },
-    "class_type": "ImagePadForOutpaint",
-    "_meta": {
-      "title": "Pad Right Tile Down 1024px"
-    }
-  },
-  "230a": {
-    "inputs": {
-      "grow": 0,
-      "blur": 128,
-      "mask": [
-        "230",
-        1
-      ]
-    },
-    "class_type": "INPAINT_ExpandMask",
-    "_meta": {
-      "title": "Blur Right Outpaint Mask"
-    }
-  },
-  "231": {
-    "inputs": {
-      "grow_mask_by": 12,
-      "pixels": [
-        "230",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "230a",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Encode for Right Outpaint"
-    }
-  },
-  "232": {
-    "inputs": {
-      "seed": 42,
-      "steps": 25,
-      "cfg": 7.5,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1,
-      "model": [
-        "3",
-        0
-      ],
-      "positive": [
-        "10",
-        0
-      ],
-      "negative": [
-        "5",
-        0
-      ],
-      "latent_image": [
-        "231",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "Outpaint Right Column (Stone\u2192Grass)"
-    }
-  },
-  "233": {
-    "inputs": {
-      "samples": [
-        "232",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Decode Right Column"
-    }
-  },
-  "234": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "230",
-        0
-      ],
-      "source": [
-        "233",
-        0
-      ],
-      "mask": [
-        "230",
-        1
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Composite Right Column"
-    }
-  },
-  "236": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 0,
-      "y": 896,
-      "width": 1024,
-      "height": 256,
-      "image_width": 1024,
-      "image_height": 2048
-    },
-    "class_type": "Create Rect Mask",
-    "_meta": {
-      "title": "Right Column - Horizontal Seam Mask"
-    }
-  },
-  "237": {
-    "inputs": {
-      "method": "intensity",
-      "image": [
-        "236",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Right Column - Convert to Mask"
-    }
-  },
-  "238": {
-    "inputs": {
-      "grow": 0,
-      "blur": 128,
-      "mask": [
-        "237",
-        0
-      ]
-    },
-    "class_type": "INPAINT_ExpandMask",
-    "_meta": {
-      "title": "Right Column - Blur Seam Mask"
-    }
-  },
-  "239": {
-    "inputs": {
-      "grow_mask_by": 12,
-      "pixels": [
-        "234",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "238",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Right Column - Encode Seam Blend"
-    }
-  },
-  "239a": {
-    "inputs": {
-      "seed": 142,
-      "steps": 40,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 0.85,
-      "model": [
-        "401",
-        0
-      ],
-      "positive": [
-        "105",
-        0
-      ],
-      "negative": [
-        "106",
-        0
-      ],
-      "latent_image": [
-        "239",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "Right Column - Blend Seam"
-    }
-  },
-  "239b": {
-    "inputs": {
-      "samples": [
-        "239a",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Right Column - Decode Blended Seam"
-    }
-  },
-  "239c": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "234",
-        0
-      ],
-      "source": [
-        "239b",
-        0
-      ],
-      "mask": [
-        "238",
-        0
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Right Column - Composite Blended Seam"
-    }
-  },
-  "235": {
-    "inputs": {
-      "filename_prefix": "debug_right_column_outpainted",
-      "images": [
-        "239c",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Debug - Right Column (1024x2048)"
-    }
-  },
-  "240": {
-    "inputs": {
-      "image_a": [
-        "229c",
-        0
-      ],
-      "image_b": [
-        "239c",
-        0
-      ],
-      "stitch": "right",
-      "feathering": 0
-    },
-    "class_type": "Image Stitch",
-    "_meta": {
-      "title": "Stitch Columns Side-by-Side"
-    }
-  },
-  "244": {
-    "inputs": {
-      "filename_prefix": "phase2_all_tiles_hard_seams",
-      "images": [
-        "240",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Phase 2 - All Tiles (Hard Seams)"
-    }
-  },
-  "300": {
-    "inputs": {
-      "mode": "pixels",
-      "origin": "topleft",
-      "x": 512,
-      "y": 1088,
-      "width": 1024,
-      "height": 960,
-      "image_width": 2048,
-      "image_height": 2048
-    },
-    "class_type": "Create Rect Mask",
-    "_meta": {
-      "title": "Phase 3 - Bottom Center Vertical Seam Mask"
-    }
-  },
-  "300a": {
-    "inputs": {
-      "filename_prefix": "debug_phase3_mask_raw",
-      "images": [
-        "300",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "DEBUG - Raw Rect Mask (Before Blur)"
-    }
-  },
-  "301": {
-    "inputs": {
-      "method": "intensity",
-      "image": [
-        "300",
-        0
-      ]
-    },
-    "class_type": "Image To Mask",
-    "_meta": {
-      "title": "Phase 3 - Convert Rect to Mask"
-    }
-  },
-  "302": {
-    "inputs": {
-      "grow": 0,
-      "blur": 160,
-      "mask": [
-        "301",
-        0
-      ]
-    },
-    "class_type": "INPAINT_ExpandMask",
-    "_meta": {
-      "title": "Phase 3 - Expand/Blur Mask"
-    }
-  },
-  "302a": {
-    "inputs": {
-      "filename_prefix": "debug_phase3_mask_feathered",
-      "images": [
-        "302",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "DEBUG - Blurred Mask"
-    }
-  },
-  "302b": {
-    "inputs": {
-      "mask": [
-        "302",
-        0
-      ]
-    },
-    "class_type": "MaskToImage",
-    "_meta": {
-      "title": "DEBUG - Mask as Image"
-    }
-  },
-  "302c": {
-    "inputs": {
-      "filename_prefix": "debug_phase3_mask_visualization",
-      "images": [
-        "302b",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "DEBUG - Mask Visualization"
-    }
-  },
-  "303": {
-    "inputs": {
-      "grow_mask_by": 64,
-      "pixels": [
-        "240",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ],
-      "mask": [
-        "302",
-        0
-      ]
-    },
-    "class_type": "VAEEncodeForInpaint",
-    "_meta": {
-      "title": "Phase 3 - Encode for Blend"
-    }
-  },
-  "304": {
-    "inputs": {
-      "seed": 46,
-      "steps": 40,
-      "cfg": 8,
-      "sampler_name": "euler",
-      "scheduler": "normal",
-      "denoise": 1.0,
-      "model": [
-        "401",
-        0
-      ],
-      "positive": [
-        "101",
-        0
-      ],
-      "negative": [
-        "102",
-        0
-      ],
-      "latent_image": [
-        "303",
-        0
-      ]
-    },
-    "class_type": "KSampler",
-    "_meta": {
-      "title": "Phase 3 - Blend Bottom Center"
-    }
-  },
-  "305": {
-    "inputs": {
-      "samples": [
-        "304",
-        0
-      ],
-      "vae": [
-        "2",
-        0
-      ]
-    },
-    "class_type": "VAEDecode",
-    "_meta": {
-      "title": "Phase 3 - Decode Blended"
-    }
-  },
-  "306": {
-    "inputs": {
-      "x": 0,
-      "y": 0,
-      "resize_source": false,
-      "destination": [
-        "240",
-        0
-      ],
-      "source": [
-        "305",
-        0
-      ],
-      "mask": [
-        "302",
-        0
-      ]
-    },
-    "class_type": "ImageCompositeMasked",
-    "_meta": {
-      "title": "Phase 3 - Composite Blended Bottom"
-    }
-  },
-  "307": {
-    "inputs": {
-      "filename_prefix": "phase3_bottom_center_blended",
-      "images": [
-        "306",
-        0
-      ]
-    },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Phase 3 - Bottom Center Blended"
-    }
-  },
-  "101": {
-    "inputs": {
-      "text": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
-      "clip": [
-        "401",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Prompt - Horizontal Transition"
-    }
-  },
-  "102": {
-    "inputs": {
-      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
-      "clip": [
-        "401",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Negative - Horizontal Transition"
-    }
-  },
-  "103": {
-    "inputs": {
-      "text": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
-      "clip": [
-        "401",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Prompt - Left Vertical Transition"
-    }
-  },
-  "104": {
-    "inputs": {
-      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
-      "clip": [
-        "401",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Negative - Left Vertical Transition"
-    }
-  },
-  "105": {
-    "inputs": {
-      "text": "natural transition between stone and grass, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
-      "clip": [
-        "3",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Prompt - Right Vertical Transition"
-    }
-  },
-  "106": {
-    "inputs": {
-      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
-      "clip": [
-        "3",
-        1
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Negative - Right Vertical Transition"
+      "title": "Load Checkpoint - Base"
     }
   },
   "2": {
@@ -987,13 +88,694 @@
       "title": "Negative Prompt - Stone"
     }
   },
-  "1": {
+  "101": {
     "inputs": {
-      "ckpt_name": "sd_xl_base_1.0.safetensors"
+      "text": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "clip": [
+        "401",
+        1
+      ]
     },
-    "class_type": "CheckpointLoaderSimple",
+    "class_type": "CLIPTextEncode",
     "_meta": {
-      "title": "Load Checkpoint - Base"
+      "title": "Prompt - Horizontal Transition"
+    }
+  },
+  "102": {
+    "inputs": {
+      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative - Horizontal Transition"
+    }
+  },
+  "103": {
+    "inputs": {
+      "text": "natural transition between grass and stone, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Left Vertical Transition"
+    }
+  },
+  "104": {
+    "inputs": {
+      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
+      "clip": [
+        "401",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative - Left Vertical Transition"
+    }
+  },
+  "105": {
+    "inputs": {
+      "text": "natural transition between stone and grass, grass growing between stone cracks, moss on stones, weathered stone edges with grass, organic boundary, small grass tufts emerging from stone gaps, stone fragments scattered in grass, seamless blend, hand painted game texture",
+      "clip": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt - Right Vertical Transition"
+    }
+  },
+  "106": {
+    "inputs": {
+      "text": "blurry, low quality, hard edge, sharp boundary, visible seam, cut line, abrupt change",
+      "clip": [
+        "3",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative - Right Vertical Transition"
+    }
+  },
+  "200": {
+    "inputs": {
+      "image": "grass_stone_row.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Top Row (Grass→Stone)"
+    }
+  },
+  "201": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "x": 0,
+      "y": 0,
+      "image": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "ImageCrop",
+    "_meta": {
+      "title": "Crop Left Half (Grass)"
+    }
+  },
+  "202": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "x": 1024,
+      "y": 0,
+      "image": [
+        "200",
+        0
+      ]
+    },
+    "class_type": "ImageCrop",
+    "_meta": {
+      "title": "Crop Right Half (Stone)"
+    }
+  },
+  "210": {
+    "inputs": {
+      "filename_prefix": "debug_left_tile_grass",
+      "images": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Left Tile (Grass)"
+    }
+  },
+  "211": {
+    "inputs": {
+      "filename_prefix": "debug_right_tile_stone",
+      "images": [
+        "202",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Right Tile (Stone)"
+    }
+  },
+  "220": {
+    "inputs": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 1024,
+      "feathering": 0,
+      "image": [
+        "201",
+        0
+      ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Left Tile Down 1024px"
+    }
+  },
+  "221": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "220",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "220a",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Encode for Left Outpaint"
+    }
+  },
+  "222": {
+    "inputs": {
+      "seed": 44,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "50",
+        0
+      ],
+      "negative": [
+        "51",
+        0
+      ],
+      "latent_image": [
+        "221",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Outpaint Left Column (Grass→Stone)"
+    }
+  },
+  "223": {
+    "inputs": {
+      "samples": [
+        "222",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Left Column"
+    }
+  },
+  "224": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "220",
+        0
+      ],
+      "source": [
+        "223",
+        0
+      ],
+      "mask": [
+        "220",
+        1
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Left Column"
+    }
+  },
+  "225": {
+    "inputs": {
+      "filename_prefix": "debug_left_column_outpainted",
+      "images": [
+        "229c",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Left Column (1024x2048)"
+    }
+  },
+  "226": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 0,
+      "y": 896,
+      "width": 1024,
+      "height": 256,
+      "image_width": 1024,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Left Column - Horizontal Seam Mask"
+    }
+  },
+  "227": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "226",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Left Column - Convert to Mask"
+    }
+  },
+  "228": {
+    "inputs": {
+      "grow": 0,
+      "blur": 200,
+      "mask": [
+        "227",
+        0
+      ]
+    },
+    "class_type": "INPAINT_ExpandMask",
+    "_meta": {
+      "title": "Left Column - Blur Seam Mask"
+    }
+  },
+  "229": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "224",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "228",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Left Column - Encode Seam Blend"
+    }
+  },
+  "230": {
+    "inputs": {
+      "left": 0,
+      "top": 0,
+      "right": 0,
+      "bottom": 1024,
+      "feathering": 0,
+      "image": [
+        "202",
+        0
+      ]
+    },
+    "class_type": "ImagePadForOutpaint",
+    "_meta": {
+      "title": "Pad Right Tile Down 1024px"
+    }
+  },
+  "231": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "230",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "230a",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Encode for Right Outpaint"
+    }
+  },
+  "232": {
+    "inputs": {
+      "seed": 42,
+      "steps": 25,
+      "cfg": 7.5,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "3",
+        0
+      ],
+      "positive": [
+        "10",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "231",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Outpaint Right Column (Stone→Grass)"
+    }
+  },
+  "233": {
+    "inputs": {
+      "samples": [
+        "232",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Decode Right Column"
+    }
+  },
+  "234": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "230",
+        0
+      ],
+      "source": [
+        "233",
+        0
+      ],
+      "mask": [
+        "230",
+        1
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Composite Right Column"
+    }
+  },
+  "235": {
+    "inputs": {
+      "filename_prefix": "debug_right_column_outpainted",
+      "images": [
+        "239c",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Debug - Right Column (1024x2048)"
+    }
+  },
+  "236": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 0,
+      "y": 896,
+      "width": 1024,
+      "height": 256,
+      "image_width": 1024,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Right Column - Horizontal Seam Mask"
+    }
+  },
+  "237": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "236",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Right Column - Convert to Mask"
+    }
+  },
+  "238": {
+    "inputs": {
+      "grow": 0,
+      "blur": 200,
+      "mask": [
+        "237",
+        0
+      ]
+    },
+    "class_type": "INPAINT_ExpandMask",
+    "_meta": {
+      "title": "Right Column - Blur Seam Mask"
+    }
+  },
+  "239": {
+    "inputs": {
+      "grow_mask_by": 12,
+      "pixels": [
+        "234",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "238",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Right Column - Encode Seam Blend"
+    }
+  },
+  "240": {
+    "inputs": {
+      "stitch": "right",
+      "feathering": 0,
+      "image_a": [
+        "229c",
+        0
+      ],
+      "image_b": [
+        "239c",
+        0
+      ]
+    },
+    "class_type": "Image Stitch",
+    "_meta": {
+      "title": "Stitch Columns Side-by-Side"
+    }
+  },
+  "244": {
+    "inputs": {
+      "filename_prefix": "phase2_all_tiles_hard_seams",
+      "images": [
+        "240",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Phase 2 - All Tiles (Hard Seams)"
+    }
+  },
+  "300": {
+    "inputs": {
+      "mode": "pixels",
+      "origin": "topleft",
+      "x": 512,
+      "y": 900,
+      "width": 1024,
+      "height": 1500,
+      "image_width": 2048,
+      "image_height": 2048
+    },
+    "class_type": "Create Rect Mask",
+    "_meta": {
+      "title": "Phase 3 - Bottom Center Vertical Seam Mask"
+    }
+  },
+  "301": {
+    "inputs": {
+      "method": "intensity",
+      "image": [
+        "300",
+        0
+      ]
+    },
+    "class_type": "Image To Mask",
+    "_meta": {
+      "title": "Phase 3 - Convert Rect to Mask"
+    }
+  },
+  "302": {
+    "inputs": {
+      "grow": 0,
+      "blur": 200,
+      "mask": [
+        "301",
+        0
+      ]
+    },
+    "class_type": "INPAINT_ExpandMask",
+    "_meta": {
+      "title": "Phase 3 - Expand/Blur Mask"
+    }
+  },
+  "303": {
+    "inputs": {
+      "grow_mask_by": 64,
+      "pixels": [
+        "240",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ],
+      "mask": [
+        "302",
+        0
+      ]
+    },
+    "class_type": "VAEEncodeForInpaint",
+    "_meta": {
+      "title": "Phase 3 - Encode for Blend"
+    }
+  },
+  "304": {
+    "inputs": {
+      "seed": 46,
+      "steps": 40,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "101",
+        0
+      ],
+      "negative": [
+        "102",
+        0
+      ],
+      "latent_image": [
+        "303",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Phase 3 - Blend Bottom Center"
+    }
+  },
+  "305": {
+    "inputs": {
+      "samples": [
+        "304",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Phase 3 - Decode Blended"
+    }
+  },
+  "306": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "240",
+        0
+      ],
+      "source": [
+        "305",
+        0
+      ],
+      "mask": [
+        "302",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Phase 3 - Composite Blended Bottom"
+    }
+  },
+  "307": {
+    "inputs": {
+      "filename_prefix": "phase3_bottom_center_blended",
+      "images": [
+        "306",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Phase 3 - Bottom Center Blended"
     }
   },
   "400": {
@@ -1022,6 +804,219 @@
     "class_type": "LoraLoader",
     "_meta": {
       "title": "Load LoRA - Stone"
+    }
+  },
+  "302a": {
+    "inputs": {
+      "filename_prefix": "debug_phase3_mask_feathered"
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "DEBUG - Blurred Mask"
+    }
+  },
+  "300a": {
+    "inputs": {
+      "filename_prefix": "debug_phase3_mask_raw",
+      "images": [
+        "300",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "DEBUG - Raw Rect Mask (Before Blur)"
+    }
+  },
+  "220a": {
+    "inputs": {
+      "grow": 0,
+      "blur": 128,
+      "mask": [
+        "220",
+        1
+      ]
+    },
+    "class_type": "INPAINT_ExpandMask",
+    "_meta": {
+      "title": "Blur Left Outpaint Mask"
+    }
+  },
+  "230a": {
+    "inputs": {
+      "grow": 0,
+      "blur": 128,
+      "mask": [
+        "230",
+        1
+      ]
+    },
+    "class_type": "INPAINT_ExpandMask",
+    "_meta": {
+      "title": "Blur Right Outpaint Mask"
+    }
+  },
+  "302b": {
+    "inputs": {
+      "mask": [
+        "302",
+        0
+      ]
+    },
+    "class_type": "MaskToImage",
+    "_meta": {
+      "title": "DEBUG - Mask as Image"
+    }
+  },
+  "302c": {
+    "inputs": {
+      "filename_prefix": "debug_phase3_mask_visualization",
+      "images": [
+        "302b",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "DEBUG - Mask Visualization"
+    }
+  },
+  "229a": {
+    "inputs": {
+      "seed": 144,
+      "steps": 40,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.85,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "103",
+        0
+      ],
+      "negative": [
+        "104",
+        0
+      ],
+      "latent_image": [
+        "229",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Left Column - Blend Seam"
+    }
+  },
+  "239a": {
+    "inputs": {
+      "seed": 142,
+      "steps": 40,
+      "cfg": 8,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 0.85,
+      "model": [
+        "401",
+        0
+      ],
+      "positive": [
+        "105",
+        0
+      ],
+      "negative": [
+        "106",
+        0
+      ],
+      "latent_image": [
+        "239",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Right Column - Blend Seam"
+    }
+  },
+  "229b": {
+    "inputs": {
+      "samples": [
+        "229a",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Left Column - Decode Blended Seam"
+    }
+  },
+  "239b": {
+    "inputs": {
+      "samples": [
+        "239a",
+        0
+      ],
+      "vae": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "Right Column - Decode Blended Seam"
+    }
+  },
+  "229c": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "224",
+        0
+      ],
+      "source": [
+        "229b",
+        0
+      ],
+      "mask": [
+        "228",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Left Column - Composite Blended Seam"
+    }
+  },
+  "239c": {
+    "inputs": {
+      "x": 0,
+      "y": 0,
+      "resize_source": false,
+      "destination": [
+        "234",
+        0
+      ],
+      "source": [
+        "239b",
+        0
+      ],
+      "mask": [
+        "238",
+        0
+      ]
+    },
+    "class_type": "ImageCompositeMasked",
+    "_meta": {
+      "title": "Right Column - Composite Blended Seam"
     }
   }
 }
